@@ -7,6 +7,7 @@ set(headers
 	src/Neutrino.Translator.h
 	src/Neutrino.Plugin.h
 	src/Neutrino.Plugin.Manager.h
+	src/Neutrino.Module.h
 )
 
 set(sources
@@ -15,8 +16,15 @@ set(sources
 	src/Neutrino.Plugin.Manager.cpp
 )
 
+if(WIN32)
+    set(platform_sources
+		src/Neutrino.Module.Windows.cpp
+	)
+endif()
+
 add_executable(neutrino 
 	${sources}
+	${platform_sources}
 	${headers}
 )
 

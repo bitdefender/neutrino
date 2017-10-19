@@ -5,8 +5,7 @@
 
 #define PLUGIN_DIR "./plugins"
 
-// FOR NOW, replace with OS independent header
-#include <Windows.h>
+#include "Neutrino.Module.h"
 
 typedef void *(*GetInstanceFunc)();
 
@@ -23,20 +22,14 @@ inline bool Neutrino::PluginManager::Plg::GetInfo() {
 			return true;
 	}
 
-	HMODULE hModule;
-	UINT oldErrorMode = SetErrorMode(SEM_FAILCRITICALERRORS);
-	SetErrorMode(oldErrorMode | SEM_FAILCRITICALERRORS); 
-	
-	hModule = LoadLibrary(moduleName.c_str());
+	module_t module = OpenModule(moduleName.c_str());
 
-	SetErrorMode(oldErrorMode);
-
- 	if (nullptr == hModule) {
+ 	if (nullptr == module) {
 		state = PluginState::ERRORED;
 		return false;
 	}
 
-	PluginInfo *pInfo = (PluginInfo *)GetProcAddress(hModule, "NeutrinoModuleInfo");
+	PluginInfo *pInfo = (PluginInfo *)FindFunction(module, "NeutrinoModuleInfo");
 	if (nullptr == pInfo) {
 		state = PluginState::ERRORED;
 		return false;
@@ -45,7 +38,7 @@ inline bool Neutrino::PluginManager::Plg::GetInfo() {
 	memcpy(&info, pInfo, sizeof(info));
 	state = PluginState::IDENTIFIED;
 
-	FreeLibrary(hModule);
+	CloseModule(module);
 	return true;
 }
 

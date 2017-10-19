@@ -4,6 +4,7 @@
 #include "ezOptionParser/ezOptionParser.h"
 #include "json/json.hpp"
 
+#include "Neutrino.Module.h"
 #include "Neutrino.Plugin.Manager.h"
 
 #define MAX_CFG_SIZE (1 << 20)
@@ -164,7 +165,7 @@ int main(int argc, const char *argv[]) {
 
 	// Do some meaningful work
 
-
+	Neutrino::MODULE_T OpenModule();
 
 
 	return 0;
