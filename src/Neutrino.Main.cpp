@@ -6,30 +6,15 @@
 
 #include "Neutrino.Module.h"
 #include "Neutrino.Plugin.Manager.h"
+#include "Neutrino.Environment.h"
+#include "Neutrino.Translator.h"
+
+#include "Payload.h"
+#include "Buffers.h"
 
 #define MAX_CFG_SIZE (1 << 20)
 
 using namespace nlohmann;
-
-int Payload(int in) {
-	if (in < 0) {
-		return  100 - in;
-	} else {
-		return in * in - 50;
-	}
-}
-
-struct JumpTable {
-	uintptr_t orig; // original jump destination
-	uintptr_t hook; // new destination
-};
-
-class Translator {
-private :
-public :
-	uintptr_t nextBb;
-};
-
 
 ez::ezOptionParser opt;
 
@@ -130,8 +115,16 @@ bool ParseConfigFile(const char *fName) {
 }
 
 Neutrino::PluginManager plugins;
+Neutrino::Translator translator; 
+Neutrino::Environment environment(translator);
+
+
 
 int main(int argc, const char *argv[]) {
+
+	for (int i = 0; i < testCount; ++i) {
+		Payload(tests[i].length, tests[i].test);
+	}
 
 	// Parse the command line
 	ParseCmdLine(argc, argv);
@@ -165,7 +158,14 @@ int main(int argc, const char *argv[]) {
 
 	// Do some meaningful work
 
-	Neutrino::MODULE_T OpenModule();
+	Neutrino::BYTE buffer[40], *bOut = buffer, *bIn = (Neutrino::BYTE *)Payload;
+	Neutrino::InstructionState state;
+
+	environment.InitExec((Neutrino::UINTPTR)Payload);
+
+	for (int i = 0; i < testCount; ++i) {
+		environment.Go((Neutrino::UINTPTR)Payload, tests[i].length, tests[i].test);
+	}
 
 
 	return 0;
