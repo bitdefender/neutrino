@@ -6,6 +6,7 @@ include_directories(include)
 set(headers
 	src/Neutrino.Types.h
 	src/Neutrino.Translator.h
+	src/Neutrino.Translator.hpp
 	src/Neutrino.Environment.h
 	src/Neutrino.Environment.hpp
 	src/Neutrino.Plugin.h

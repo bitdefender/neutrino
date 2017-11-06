@@ -21,7 +21,6 @@ namespace Neutrino {
 		(this->*translateOperand[tbl][state.opCode])(pIn, pOut, szOut, state);
 	}
 
-
 	bool Translator::TraceWrite(BYTE *&pOut, int &szOut, InstructionState &state, UINTPTR dest) {
 		static const BYTE code[] = {
 			0xA3, 0x00, 0x00, 0x00, 0x00,						// 0x00 - mov [eaxSave], eax
@@ -40,32 +39,12 @@ namespace Neutrino {
 			return false;
 		}
 
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_REG1_BACKUP;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pStart[0x01];
-		state.patchCount++;
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_TRACE_INDEX;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pStart[0x06];
-		state.patchCount++;
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_TRACE_INDEX;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pStart[0x0E];
-		state.patchCount++;
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_TRACE_BASE;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pStart[0x15];
-		state.patchCount++;
-
+		state.Patch(PATCH_TYPE_REG1_BACKUP, 0, (UINTPTR *)&pStart[0x01]);
+		state.Patch(PATCH_TYPE_TRACE_INDEX, 0, (UINTPTR *)&pStart[0x06]);
+		state.Patch(PATCH_TYPE_TRACE_INDEX, 0, (UINTPTR *)&pStart[0x0E]);
+		state.Patch(PATCH_TYPE_TRACE_BASE, 0, (UINTPTR *)&pStart[0x15]);
 		*(UINTPTR *)&pStart[0x1B] = dest;
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_REG1_BACKUP;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pStart[0x20];
-		state.patchCount++;
+		state.Patch(PATCH_TYPE_REG1_BACKUP, 0, (UINTPTR *)&pStart[0x20]);
 
 		return true;
 	}
@@ -98,10 +77,7 @@ namespace Neutrino {
 
 		UINTPTR *pPatch = (UINTPTR *)&pOut[1];
 
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_DIRECT;
-		state.patch[state.patchCount].destination = (UINTPTR)dest;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pOut[7];
-		state.patchCount++;
+		state.Patch(PATCH_TYPE_DIRECT, (UINTPTR)dest, (UINTPTR *)&pOut[0x07]);
 		state.flags |= FLAG_JUMP;
 
 		CopyBytes<sizeof(code)>(pCode, pOut, szOut);
@@ -129,36 +105,13 @@ namespace Neutrino {
 
 		CopyBytes<sizeof(code)>(pCode, pOut, szOut);
 
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_REG1_BACKUP;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pStart[0x01];
-		state.patchCount++;
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_TRACE_INDEX;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pStart[0x06];
-		state.patchCount++;
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_TRACE_INDEX;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pStart[0x0E];
-		state.patchCount++;
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_TRACE_BASE;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pStart[0x15];
-		state.patchCount++;
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_REG1_BACKUP;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pStart[0x1C];
-		state.patchCount++;
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_INDIRECT;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pStart[0x21];
-		state.patchCount++;
-
+		state.Patch(PATCH_TYPE_REG1_BACKUP, 0, (UINTPTR *)&pStart[0x01]);
+		state.Patch(PATCH_TYPE_TRACE_INDEX, 0, (UINTPTR *)&pStart[0x06]);
+		state.Patch(PATCH_TYPE_TRACE_INDEX, 0, (UINTPTR *)&pStart[0x0E]);
+		state.Patch(PATCH_TYPE_TRACE_BASE, 0, (UINTPTR *)&pStart[0x15]);
+		state.Patch(PATCH_TYPE_REG1_BACKUP, 0, (UINTPTR *)&pStart[0x1C]);
+		state.Patch(PATCH_TYPE_INDIRECT, 0, (UINTPTR *)&pStart[0x21]);
+		
 		pIn++;
 		state.flags |= FLAG_JUMP;
 		return PARSED_OPCODE;
@@ -182,38 +135,14 @@ namespace Neutrino {
 
 		CopyBytes<sizeof(code)>(pCode, pOut, szOut);
 
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_REG1_BACKUP;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pStart[0x01];
-		state.patchCount++;
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_TRACE_INDEX;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pStart[0x06];
-		state.patchCount++;
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_TRACE_INDEX;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pStart[0x0E];
-		state.patchCount++;
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_TRACE_BASE;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pStart[0x15];
-		state.patchCount++;
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_REG1_BACKUP;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pStart[0x1C];
-		state.patchCount++;
-
+		state.Patch(PATCH_TYPE_REG1_BACKUP, 0, (UINTPTR *)&pStart[0x01]);
+		state.Patch(PATCH_TYPE_TRACE_INDEX, 0, (UINTPTR *)&pStart[0x06]);
+		state.Patch(PATCH_TYPE_TRACE_INDEX, 0, (UINTPTR *)&pStart[0x0E]);
+		state.Patch(PATCH_TYPE_TRACE_BASE, 0, (UINTPTR *)&pStart[0x15]);
+		state.Patch(PATCH_TYPE_REG1_BACKUP, 0, (UINTPTR *)&pStart[0x1C]);
 		*(int *)&pStart[0x23] = (int)(*(short *)&pIn[1]);
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_INDIRECT;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pStart[0x28];
-		state.patchCount++;
-
+		state.Patch(PATCH_TYPE_INDIRECT, 0, (UINTPTR *)&pStart[0x28]);
+		
 		pIn += 3;
 		state.flags |= FLAG_JUMP;
 		return PARSED_OPCODE;
@@ -236,10 +165,7 @@ namespace Neutrino {
 
 		*(UINTPTR *)&pStart[1] = (UINTPTR)pIn;
 
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_REG2_BACKUP;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pStart[0x07];
-		state.patchCount++;
+		state.Patch(PATCH_TYPE_REG2_BACKUP, 0, (UINTPTR *)&pStart[0x07]);
 
 		pStart[0x0C] &= 0xC7; // clear ext
 		pStart[0x0C] |= 0x18; // set ext to EBX
@@ -260,41 +186,14 @@ namespace Neutrino {
 		BYTE *pCont = pOut;
 		CopyBytes<sizeof(code2)>(pCode, pOut, szOut);
 
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_REG1_BACKUP;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pCont[0x01];
-		state.patchCount++;
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_TRACE_INDEX;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pCont[0x06];
-		state.patchCount++;
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_TRACE_INDEX;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pCont[0x0E];
-		state.patchCount++;
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_TRACE_BASE;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pCont[0x15];
-		state.patchCount++;
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_REG1_BACKUP;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pCont[0x1C];
-		state.patchCount++;
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_REG2_BACKUP;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pCont[0x22];
-		state.patchCount++;
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_INDIRECT;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pCont[0x27];
-		state.patchCount++;
-
+		state.Patch(PATCH_TYPE_REG1_BACKUP, 0, (UINTPTR *)&pCont[0x01]);
+		state.Patch(PATCH_TYPE_TRACE_INDEX, 0, (UINTPTR *)&pCont[0x06]);
+		state.Patch(PATCH_TYPE_TRACE_INDEX, 0, (UINTPTR *)&pCont[0x0E]);
+		state.Patch(PATCH_TYPE_TRACE_BASE, 0, (UINTPTR *)&pCont[0x15]);
+		state.Patch(PATCH_TYPE_REG1_BACKUP, 0, (UINTPTR *)&pCont[0x1C]);
+		state.Patch(PATCH_TYPE_REG2_BACKUP, 0, (UINTPTR *)&pCont[0x22]);
+		state.Patch(PATCH_TYPE_INDIRECT, 0, (UINTPTR *)&pCont[0x27]);
+		
 		state.flags |= FLAG_JUMP;
 		return PARSED_OPCODE;
 	}
@@ -312,10 +211,7 @@ namespace Neutrino {
 		pIn += 1; szOut -= 1;
 		TranslateModRMOperand(pIn, pOut, szOut, state);
 
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_REG2_BACKUP;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pStart[0x02];
-		state.patchCount++;
+		state.Patch(PATCH_TYPE_REG2_BACKUP, 0, (UINTPTR *)&pStart[0x02]);
 
 		pStart[0x07] &= 0xC7; // clear ext
 		pStart[0x07] |= 0x18; // set ext to EBX
@@ -336,40 +232,13 @@ namespace Neutrino {
 		BYTE *pCont = pOut;
 		CopyBytes<sizeof(code2)>(pCode, pOut, szOut);
 
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_REG1_BACKUP;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pCont[0x01];
-		state.patchCount++;
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_TRACE_INDEX;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pCont[0x06];
-		state.patchCount++;
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_TRACE_INDEX;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pCont[0x0E];
-		state.patchCount++;
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_TRACE_BASE;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pCont[0x15];
-		state.patchCount++;
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_REG1_BACKUP;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pCont[0x1C];
-		state.patchCount++;
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_REG2_BACKUP;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pCont[0x22];
-		state.patchCount++;
-
-		state.patch[state.patchCount].jumpType = PATCH_TYPE_INDIRECT;
-		state.patch[state.patchCount].destination = 0;
-		state.patch[state.patchCount].patch = (UINTPTR *)&pCont[0x27];
-		state.patchCount++;
+		state.Patch(PATCH_TYPE_REG1_BACKUP, 0, (UINTPTR *)&pCont[0x01]);
+		state.Patch(PATCH_TYPE_TRACE_INDEX, 0, (UINTPTR *)&pCont[0x06]);
+		state.Patch(PATCH_TYPE_TRACE_INDEX, 0, (UINTPTR *)&pCont[0x0E]);
+		state.Patch(PATCH_TYPE_TRACE_BASE, 0, (UINTPTR *)&pCont[0x15]);
+		state.Patch(PATCH_TYPE_REG1_BACKUP, 0, (UINTPTR *)&pCont[0x1C]);
+		state.Patch(PATCH_TYPE_REG2_BACKUP, 0, (UINTPTR *)&pCont[0x22]);
+		state.Patch(PATCH_TYPE_INDIRECT, 0, (UINTPTR *)&pCont[0x27]);
 
 		state.flags |= FLAG_JUMP;
 		return PARSED_OPCODE;
@@ -429,6 +298,23 @@ namespace Neutrino {
 		}
 
 
+	}
+
+	inline void Translator::TranslateImm8Operand(const BYTE *& pIn, BYTE *& pOut, int & szOut, InstructionState & state) {
+		CopyBytes<1>(pIn, pOut, szOut);
+	}
+
+	inline void Translator::TranslateImm1632Operand(const BYTE *& pIn, BYTE *& pOut, int & szOut, InstructionState & state) {
+		if (state.flags & FLAG_O16) {
+			CopyBytes<2>(pIn, pOut, szOut);
+		}
+		else {
+			CopyBytes<4>(pIn, pOut, szOut);
+		}
+	}
+
+	inline void Translator::TranslateImm32Operand(const BYTE *& pIn, BYTE *& pOut, int & szOut, InstructionState & state) {
+		CopyBytes<4>(pIn, pOut, szOut);
 	}
 
 	/* = Opcode translation table ================================================= */
