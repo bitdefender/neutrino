@@ -2,6 +2,8 @@
 #ifndef _NEUTRINO_TRANSLATOR_HPP_
 #define _NEUTRINO_TRANSLATOR_HPP_
 
+#include <cstring>
+
 namespace Neutrino {
 
 	/* Helpers */
@@ -12,9 +14,7 @@ namespace Neutrino {
 			return false;
 		}
 
-		for (int i = 0; i < count; ++i) {
-			bOut[i] = bIn[i];
-		}
+		memcpy(bOut, bIn, count);
 
 		bOut += count;
 		bIn += count;
@@ -34,8 +34,7 @@ namespace Neutrino {
 	template<BYTE destSize>
 	inline DWORD Translator::TranslateJmp(const BYTE *&pIn, BYTE *&pOut, int &szOut, InstructionState &state) {
 		static const BYTE code[] = {
-			//0xE9, 0x00, 0x00, 0x00, 0x00
-			0xff, 0x25, 0x00, 0x00, 0x00, 0x00
+			0xFF, 0x25, 0x00, 0x00, 0x00, 0x00
 		};
 
 		const BYTE *pCode = code;
@@ -68,8 +67,7 @@ namespace Neutrino {
 	template<BYTE destSize>
 	inline DWORD Translator::TranslateJxx(const BYTE *&pIn, BYTE *&pOut, int &szOut, InstructionState &state) {
 		static const BYTE code[] = {
-			//0xE9, 0x00, 0x00, 0x00, 0x00
-			0xff, 0x25, 0x00, 0x00, 0x00, 0x00
+			0xFF, 0x25, 0x00, 0x00, 0x00, 0x00
 		};
 
 		const BYTE *pCode = code;

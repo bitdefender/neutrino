@@ -255,49 +255,33 @@ namespace Neutrino {
 	}
 
 	void Translator::TranslateModRMOperand(const BYTE *&pIn, BYTE *&pOut, int &szOut, InstructionState &state) {
-		BYTE modRM = pOut[0] = pIn[0];
+		BYTE modRM = pIn[0];
 		BYTE mod = modRM & 0xC0;
-		pOut++; pIn++;
-		szOut--;
+
+		CopyBytes<1>(pIn, pOut, szOut);
 
 		if ((0x4 == (modRM & 0x7)) && (mod != 0xC0)) {
 			// also copy the SIB byte
-			BYTE sib = pOut[0] = pIn[0];
-			pOut++; pIn++;
-			szOut--;
+			BYTE sib = pIn[0];
 
+			CopyBytes<1>(pIn, pOut, szOut);
+			
 			if (0x5 == (sib & 0x7)) {
 				if ((mod == 0x00) || (mod == 0x80)) {
-					pOut[0] = pIn[0];
-					pOut[1] = pIn[1];
-					pOut[2] = pIn[2];
-					pOut[3] = pIn[3];
-					pOut += 4; pIn += 4;
-					szOut -= 4;
+					CopyBytes<4>(pIn, pOut, szOut);
 				} else if (mod == 0x40) {
-					pOut[0] = pIn[0];
-					pOut++; pIn++;
-					szOut--;
+					CopyBytes<1>(pIn, pOut, szOut);
 				}
 			}
 		}
 
 		if (mod == 0x40) {
 			// also copy byte displacement
-			pOut[0] = pIn[0];
-			pOut++; pIn++;
-			szOut--;
+			CopyBytes<1>(pIn, pOut, szOut);
 		} else if ((mod == 0x80) || ((mod == 0x00) && (0x5 == (modRM & 0x7)))) {
 			// also copy dword displacement
-			pOut[0] = pIn[0];
-			pOut[1] = pIn[1];
-			pOut[2] = pIn[2];
-			pOut[3] = pIn[3];
-			pOut += 4; pIn += 4;
-			szOut -= 4;
+			CopyBytes<4>(pIn, pOut, szOut);
 		}
-
-
 	}
 
 	inline void Translator::TranslateImm8Operand(const BYTE *& pIn, BYTE *& pOut, int & szOut, InstructionState & state) {
@@ -307,8 +291,7 @@ namespace Neutrino {
 	inline void Translator::TranslateImm1632Operand(const BYTE *& pIn, BYTE *& pOut, int & szOut, InstructionState & state) {
 		if (state.flags & FLAG_O16) {
 			CopyBytes<2>(pIn, pOut, szOut);
-		}
-		else {
+		} else {
 			CopyBytes<4>(pIn, pOut, szOut);
 		}
 	}
