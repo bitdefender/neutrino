@@ -14,6 +14,35 @@
 
 #define MAX_CFG_SIZE (1 << 20)
 
+#ifdef _MSC_VER
+
+typedef LARGE_INTEGER TIME_T;
+typedef LARGE_INTEGER TIME_FREQ_T;
+typedef double TIME_RES_T;
+#define START_COUNTER(starttime, freq) { QueryPerformanceCounter(&(starttime)); }
+#define GET_COUNTER_AGGREGATE(starttime, endtime, freq, total) { QueryPerformanceCounter(&(endtime)); \
+	total += (endtime).QuadPart - (starttime).QuadPart; }
+#define GET_COUNTER(starttime, endtime, freq, total) { QueryPerformanceCounter(&(endtime)); \
+	total = 1000.0 * ((endtime).QuadPart - (starttime).QuadPart) / freq.QuadPart; }
+#define GET_AGGREGATE_RESULT(total, freq, result) { \
+	result = 1000.0 * (total) / (freq).QuadPart; }
+#define GET_FREQ(freq) { QueryPerformanceFrequency(&(freq)); }
+
+#else
+
+typedef struct timespec TIME_T;
+typedef double TIME_FREQ_T;
+typedef double TIME_RES_T;
+#define START_COUNTER(starttime, freq) { clock_gettime(CLOCK_REALTIME, &(starttime)); }
+#define GET_COUNTER(starttime, endtime, freq, res) { clock_gettime(CLOCK_REALTIME, &(endtime)); \
+	res = ((endtime).tv_sec - (starttime).tv_sec) + ((endtime).tv_nsec - (starttime).tv_nsec) / freq; }
+#define GET_COUNTER_AGGREGATE(starttime, endtime, freq, res) { clock_gettime(CLOCK_REALTIME, &(endtime)); \
+	res += ((endtime).tv_sec - (starttime).tv_sec) + ((endtime).tv_nsec - (starttime).tv_nsec) / freq; }
+#define GET_AGGREGATE_RESULT(total, freq, result) { result = total; }
+#define GET_FREQ(freq) { (freq) = 1E9; }
+
+#endif
+
 using namespace nlohmann;
 
 ez::ezOptionParser opt;
@@ -121,10 +150,20 @@ Neutrino::Environment environment(translator);
 
 
 int main(int argc, const char *argv[]) {
+	TIME_FREQ_T liFreq;
+	TIME_T liStart, liStop;
+	TIME_RES_T liTotal;
 
-	for (int i = 0; i < testCount; ++i) {
-		Payload(tests[i].length, tests[i].test);
+	GET_FREQ(liFreq);
+	START_COUNTER(liStart, liFreq);
+	for (int n = 0; n < 1000; ++n) {
+		for (int i = 0; i < testCount; ++i) {
+			Payload(tests[i].length, tests[i].test);
+		}
 	}
+	GET_COUNTER(liStart, liStop, liFreq, liTotal);
+	printf("Native runtime: %.6lf\n", liTotal);
+
 
 	// Parse the command line
 	ParseCmdLine(argc, argv);
@@ -163,9 +202,14 @@ int main(int argc, const char *argv[]) {
 
 	environment.InitExec((Neutrino::UINTPTR)Payload);
 
-	for (int i = 0; i < testCount; ++i) {
-		environment.Go((Neutrino::UINTPTR)Payload, tests[i].length, tests[i].test);
+	START_COUNTER(liStart, liFreq);
+	for (int n = 0; n < 1000; ++n) {
+		for (int i = 0; i < testCount; ++i) {
+			environment.Go((Neutrino::UINTPTR)Payload, tests[i].length, tests[i].test);
+		}
 	}
+	GET_COUNTER(liStart, liStop, liFreq, liTotal);
+    printf("Translated runtime: %.6lf\n", liTotal);
 
 
 	return 0;

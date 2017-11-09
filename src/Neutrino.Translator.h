@@ -40,23 +40,9 @@ namespace Neutrino {
 		CodePatch patch[16];
 		DWORD patchCount;
 
-		InstructionState() {
-			flags = 0;
-			opCode = 0;
-			pfxCount = 0;
-			patchCount = 0;
+		InstructionState();
 
-			for (int i = 0; i < 8; ++i) {
-				patch[i].jumpType = PATCH_TYPE_UNUSED;
-			}
-		}
-
-		void Patch(DWORD jump, UINTPTR dest, UINTPTR *addr) {
-			patch[patchCount].jumpType = jump;
-			patch[patchCount].destination = dest;
-			patch[patchCount].patch = addr;
-			patchCount++;
-		}
+		void Patch(DWORD jump, UINTPTR dest, UINTPTR *addr);
 	};
 
 	class Translator {

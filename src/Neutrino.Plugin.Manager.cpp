@@ -1,7 +1,13 @@
 #include "Neutrino.Plugin.Manager.h"
 
+#include <cstring>
 #include <vector>
+
+#ifdef _MSC_VER
 #include <filesystem>
+#else
+#include <experimental/filesystem>
+#endif
 
 #define PLUGIN_DIR "./plugins"
 
@@ -60,12 +66,12 @@ void *Neutrino::PluginManager::GetInst(const char *name) {
 		return nullptr;
 	}
 
-	HMODULE hMod;
+	module_t hMod;
 	if (plg->state == PluginState::IDENTIFIED) {
-		hMod = LoadLibrary(plg->moduleName.c_str());
+		hMod = OpenModule(plg->moduleName.c_str());
 	}
 
-	GetInstanceFunc iFunc = (GetInstanceFunc)GetProcAddress(hMod, "GetInstance");
+	GetInstanceFunc iFunc = (GetInstanceFunc)FindFunction(hMod, "GetInstance");
 
 	return iFunc();
 }

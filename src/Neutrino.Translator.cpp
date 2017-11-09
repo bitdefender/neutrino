@@ -1,6 +1,31 @@
 #include "Neutrino.Translator.h"
 
+#ifdef _MSC_VER
+#define DEBUG_BREAK __asm int 3
+#else
+#define DEBUG_BREAK asm volatile("int $0x3")
+#endif
+
+
 namespace Neutrino {
+
+	InstructionState::InstructionState() {
+		flags = 0;
+		opCode = 0;
+		pfxCount = 0;
+		patchCount = 0;
+
+		for (int i = 0; i < 8; ++i) {
+			patch[i].jumpType = PATCH_TYPE_UNUSED;
+		}
+	}
+
+	void InstructionState::Patch(DWORD jump, UINTPTR dest, UINTPTR * addr) {
+		patch[patchCount].jumpType = jump;
+		patch[patchCount].destination = dest;
+		patch[patchCount].patch = addr;
+		patchCount++;
+	}
 
 	void Translator::Translate(const BYTE *&pIn, BYTE *&pOut, int &szOut, InstructionState &state) {
 		state.flags = 0;
@@ -50,7 +75,7 @@ namespace Neutrino {
 	}
 
 	DWORD Translator::TranslateOpcodeErr(const BYTE *&pIn, BYTE *&pOut, int &szOut, InstructionState &state) {
-		__asm int 3;
+		DEBUG_BREAK;
 	}
 
 	DWORD Translator::TranslateOpcode(const BYTE *&pIn, BYTE *&pOut, int &szOut, InstructionState &state) {
@@ -247,7 +272,7 @@ namespace Neutrino {
 	/* Operands */
 
 	void Translator::TranslateOperandErr(const BYTE *&pIn, BYTE *&pOut, int &szOut, InstructionState &state) {
-		__asm int 3;
+		DEBUG_BREAK;
 	}
 
 	void Translator::TranslateNoOperand(const BYTE *&pIn, BYTE *&pOut, int &szOut, InstructionState &state) {
@@ -422,24 +447,24 @@ namespace Neutrino {
 			/* 0x4C */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr,
 
 			/* 0x50 */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr,
-			/* 0x54 */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr,
+			/* 0x54 */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcode,
 			/* 0x58 */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr,
 			/* 0x5C */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr,
 
 			/* 0x60 */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr,
 			/* 0x64 */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr,
 			/* 0x68 */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr,
-			/* 0x6C */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcode, &Translator::TranslateOpcodeErr,
+			/* 0x6C */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcode, &Translator::TranslateOpcode,
 
 			/* 0x70 */ &Translator::TranslateOpcode, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr,
-			/* 0x74 */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr,
+			/* 0x74 */ &Translator::TranslateOpcode, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr,
 			/* 0x78 */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr,
 			/* 0x7C */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcode,
 
-			/* 0x80 */ &Translator::TranslateJxx<4>, &Translator::TranslateJxx<4>, &Translator::TranslateJxx<4>, &TranslateJxx<4>,
-			/* 0x84 */ &Translator::TranslateJxx<4>, &Translator::TranslateJxx<4>, &Translator::TranslateJxx<4>, &TranslateJxx<4>,
-			/* 0x88 */ &Translator::TranslateJxx<4>, &Translator::TranslateJxx<4>, &Translator::TranslateJxx<4>, &TranslateJxx<4>,
-			/* 0x8C */ &Translator::TranslateJxx<4>, &Translator::TranslateJxx<4>, &Translator::TranslateJxx<4>, &TranslateJxx<4>,
+			/* 0x80 */ &Translator::TranslateJxx<4u>, &Translator::TranslateJxx<4u>, &Translator::TranslateJxx<4u>, &Translator::TranslateJxx<4u>,
+			/* 0x84 */ &Translator::TranslateJxx<4u>, &Translator::TranslateJxx<4u>, &Translator::TranslateJxx<4u>, &Translator::TranslateJxx<4u>,
+			/* 0x88 */ &Translator::TranslateJxx<4u>, &Translator::TranslateJxx<4u>, &Translator::TranslateJxx<4u>, &Translator::TranslateJxx<4u>,
+			/* 0x8C */ &Translator::TranslateJxx<4u>, &Translator::TranslateJxx<4u>, &Translator::TranslateJxx<4u>, &Translator::TranslateJxx<4u>,
 
 			/* 0x90 */ &Translator::TranslateOpcode, &Translator::TranslateOpcode, &Translator::TranslateOpcode, &Translator::TranslateOpcode,
 			/* 0x94 */ &Translator::TranslateOpcode, &Translator::TranslateOpcode, &Translator::TranslateOpcode, &Translator::TranslateOpcode,
@@ -462,14 +487,14 @@ namespace Neutrino {
 			/* 0xCC */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr,
 
 			/* 0xD0 */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr,
-			/* 0xD4 */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr,
-			/* 0xD8 */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr,
+			/* 0xD4 */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcode,
+			/* 0xD8 */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcode,
 			/* 0xDC */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr,
 
 			/* 0xE0 */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr,
 			/* 0xE4 */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr,
 			/* 0xE8 */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr,
-			/* 0xEC */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr,
+			/* 0xEC */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcode,
 
 			/* 0xF0 */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr,
 			/* 0xF4 */ &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr, &Translator::TranslateOpcodeErr,
@@ -635,18 +660,18 @@ namespace Neutrino {
 			/* 0x4C */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr,
 
 			/* 0x50 */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr,
-			/* 0x54 */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr,
+			/* 0x54 */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateModRMOperand,
 			/* 0x58 */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr,
 			/* 0x5C */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr,
 
 			/* 0x60 */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr,
 			/* 0x64 */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr,
 			/* 0x68 */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr,
-			/* 0x6C */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateModRMOperand, &Translator::TranslateOperandErr,
+			/* 0x6C */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateModRMOperand, &Translator::TranslateModRMOperand,
 
 			/* 0x70 */ &Translator::TranslateAggOperand<&Translator::TranslateModRMOperand, &Translator::TranslateImm8Operand>,
 			/* 0x71 */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr,
-			/* 0x74 */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr,
+			/* 0x74 */ &Translator::TranslateModRMOperand, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr,
 			/* 0x78 */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr,
 			/* 0x7C */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateModRMOperand,
 
@@ -678,14 +703,14 @@ namespace Neutrino {
 			/* 0xCC */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr,
 
 			/* 0xD0 */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr,
-			/* 0xD4 */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr,
-			/* 0xD8 */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr,
+			/* 0xD4 */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateModRMOperand,
+			/* 0xD8 */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateModRMOperand,
 			/* 0xDC */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr,
 
 			/* 0xE0 */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr,
 			/* 0xE4 */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr,
 			/* 0xE8 */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr,
-			/* 0xEC */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr,
+			/* 0xEC */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateModRMOperand,
 
 			/* 0xF0 */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr,
 			/* 0xF4 */ &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr, &Translator::TranslateOperandErr,

@@ -61,52 +61,10 @@ static struct message messages[16];
 static int num_messages;
 static http_parser_settings *current_pause_parser;
 
-#ifdef _WIN32
 #define my_memset memset
 #define my_memcpy memcpy
 #define my_strlen strlen
 #define my_strnlen strnlen
-#endif
-/*
-void my_memset(void *buffer, unsigned int value, unsigned int size) {
-	for (unsigned int i = 0; i < size; ++i) {
-		((char *)buffer)[i] = value;
-	}
-}
-
-void my_memcpy(void *dest, const void *src, unsigned int size) {
-	for (unsigned int i = 0; i < size; ++i) {
-		((char *)dest)[i] = ((char *)src)[i];
-	}
-}
-
-int my_strlen(const char *str) {
-	const char *c = str;
-	while (*c) c++;
-
-	return c - str;
-}
-
-int my_strnlen(const char *str, int n) {
-	for (int i = 0; i < n; ++i) {
-		if ('\0' == str[i]) {
-			return i;
-		}
-	}
-	return n;
-}*/
-
-#ifdef __linux__
-typedef void *(*my_memset_t) (void *s, int c, size_t n);
-typedef void *(*my_memcpy_t) (void *dest, const void *src, size_t n);
-typedef size_t (*my_strlen_t) (const char *s);
-typedef size_t (*my_strnlen_t) (const char *s, size_t maxlen);
-
-my_memset_t my_memset;
-my_memcpy_t my_memcpy;
-my_strlen_t my_strlen;
-my_strnlen_t my_strnlen;
-#endif
 
 http_parser parserObj;
 

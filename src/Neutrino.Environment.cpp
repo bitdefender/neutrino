@@ -227,6 +227,7 @@ namespace Neutrino {
 
 		BasicBlock *bbInit = hash.Find(entry);
 
+		traceIndex = 0;
 		trace[traceIndex] = entry;
 		
 		TFunc funcPtr[] = {
