@@ -11,9 +11,6 @@
 
 #define PLUGIN_DIR "./plugins"
 
-#include "Neutrino.Module.h"
-
-typedef void *(*GetInstanceFunc)();
 
 inline Neutrino::PluginManager::Plg::Plg(const std::string name) : moduleName(name) {
 	state = PluginState::LISTED;
@@ -66,14 +63,25 @@ void *Neutrino::PluginManager::GetInst(const char *name) {
 		return nullptr;
 	}
 
-	module_t hMod;
-	if (plg->state == PluginState::IDENTIFIED) {
-		hMod = OpenModule(plg->moduleName.c_str());
+	if (plg->state == PluginState::ERRORED) {
+		return nullptr;
 	}
 
-	GetInstanceFunc iFunc = (GetInstanceFunc)FindFunction(hMod, "GetInstance");
+	if (plg->state == PluginState::IDENTIFIED) {
+		plg->module = OpenModule(plg->moduleName.c_str());
+		// if (plg->module) not loaded
 
-	return iFunc();
+		plg->getInst = (PluginGetInstanceFunc)FindFunction(plg->module, "GetInstance");
+		if (nullptr == plg->getInst) {
+			CloseModule(plg->module);
+			plg->state = PluginState::ERRORED;
+			return nullptr;
+		}
+
+		plg->state = PluginState::LOADED;
+	}
+
+	return plg->getInst();
 }
 
 bool Neutrino::PluginManager::Scan() {
@@ -92,7 +100,11 @@ void Neutrino::PluginManager::IdentifyAll() {
 
 void Neutrino::PluginManager::PrintAll() {
 	char types[][16] = {
-		"Unknown"
+		"Unknown",
+		"Input",
+		"Output",
+		"Evaluator",
+		"Mutator"
 	};
 
 	printf("\nNeutrino plugin list\n\n");

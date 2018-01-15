@@ -3,6 +3,8 @@
 #include <vector>
 #include <string>
 
+#include "Neutrino.Module.h"
+
 namespace Neutrino {
 
 	class PluginManager {
@@ -14,12 +16,14 @@ namespace Neutrino {
 			ERRORED // some error occured durring any loading stage
 		};
 
+		typedef Plugin* (*PluginGetInstanceFunc)();
+
 		struct Plg {
 			std::string moduleName;
 			PluginState state;
 			PluginInfo info;
-			// os dependent
-			//HANDLE lib;
+			module_t module;
+			PluginGetInstanceFunc getInst;
 
 			Plg(const std::string name);
 			bool GetInfo();

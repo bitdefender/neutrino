@@ -9,6 +9,8 @@ endif()
 
 set(headers
 	src/Neutrino.Types.h
+	src/Neutrino.Enum.Set.h
+	src/Neutrino.Abstract.Translator.h
 	src/Neutrino.Translator.h
 	src/Neutrino.Translator.hpp
 	src/Neutrino.Environment.h
@@ -17,6 +19,23 @@ set(headers
 	src/Neutrino.Plugin.Manager.h
 	src/Neutrino.Module.h
 	src/Neutrino.Memory.h
+	src/Neutrino.Result.h
+	src/Neutrino.Strategy.Trace.h
+	src/Neutrino.Strategy.Tuple.h
+
+	src/Neutrino.Test.h
+
+	src/Neutrino.Queue.h
+	src/Neutrino.Queue.hpp
+	src/Neutrino.Priority.Queue.h
+	src/Neutrino.Priority.Queue.hpp
+	src/Neutrino.Fair.Queue.h
+	src/Neutrino.Fair.Queue.hpp
+
+	src/Neutrino.Plugin.h
+	src/Neutrino.Input.Plugin.h
+	src/Neutrino.Output.Plugin.h
+	src/Neutrino.Evaluator.Plugin.h
 )
 
 set(sources
@@ -24,6 +43,8 @@ set(sources
 	src/Neutrino.Translator.cpp
 	src/Neutrino.Environment.cpp
 	src/Neutrino.Plugin.Manager.cpp
+	src/Neutrino.Strategy.Trace.cpp
+	src/Neutrino.Strategy.Tuple.cpp
 )
 
 set(payload_sources
@@ -78,3 +99,22 @@ add_library(neutrino.plugin.example SHARED
 	${plugin_sources}
 	${plugin_headers}
 )
+
+set(evaluator_plugin_sources
+	src/plugin/Evaluator.Plugin.Example.cpp
+)
+
+add_library(evaluator.plugin.example SHARED
+	${evaluator_plugin_sources}
+	${plugin_headers}
+)
+
+set(file_input_plugin_sources
+	src/plugin/File.Input.Plugin.cpp
+)
+
+add_library(file.input.plugin.example SHARED
+	${file_input_plugin_sources}
+	${plugin_headers}
+)
+

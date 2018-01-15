@@ -1,13 +1,26 @@
 #include <cstdio>
 #include <cstdint>
 
+#include <vector>
+
 #include "ezOptionParser/ezOptionParser.h"
 #include "json/json.hpp"
 
 #include "Neutrino.Module.h"
 #include "Neutrino.Plugin.Manager.h"
 #include "Neutrino.Environment.h"
+#include "Neutrino.Strategy.Trace.h"
+#include "Neutrino.Strategy.Tuple.h"
 #include "Neutrino.Translator.h"
+
+#include "Neutrino.Test.h"
+
+#include "Neutrino.Fair.Queue.h"
+#include "Neutrino.Priority.Queue.h"
+
+#include "Neutrino.Input.Plugin.h"
+#include "Neutrino.Output.Plugin.h"
+#include "Neutrino.Evaluator.Plugin.h"
 
 #include "Payload.h"
 #include "Buffers.h"
@@ -118,39 +131,236 @@ void ParseCmdLine(int argc, const char *argv[]) {
 nlohmann::json config;
 
 bool ParseConfigFile(const char *fName) {
-	FILE *fCfg = fopen(fName, "rt");
+	std::ifstream sCfg(fName);
 
-	if (nullptr == fCfg) {
+	if (!sCfg) {
 		printf("Config file \"%s\" not found!\n", fName);
 		return false;
 	}
 
-	fseek(fCfg, 0, SEEK_END);
-	long sz = ftell(fCfg);
-
-	if (sz > (MAX_CFG_SIZE)) {
-		fclose(fCfg);
-		printf("Config file too large!\n");
+	try {
+		sCfg >> config;
+	} catch (std::invalid_argument msg) {
+		printf("%s error: %s\n", fName, msg.what());
 		return false;
 	}
-
-	char *cfgTxt = new char[sz + 1];
-	fseek(fCfg, 0, SEEK_SET);
-	long srd = fread(cfgTxt, 1, sz, fCfg);
-	cfgTxt[srd] = 0;
-
-	config = nlohmann::json::parse(cfgTxt);
+	
 	return true;
 }
 
+
+typedef Neutrino::FairQueue<Neutrino::Test, 1 << 15> InputQueue;
+InputQueue *testInputQueue;
+
 Neutrino::PluginManager plugins;
-Neutrino::Translator translator; 
-Neutrino::Environment environment(translator);
+Neutrino::Environment<Neutrino::TraceStrategy> traceEnvironment;
+Neutrino::Environment<Neutrino::TupleStrategy> tupleEnvironment;
+Neutrino::AbstractEnvironment *environment;
+
+std::vector<Neutrino::InputPlugin *> inputPlugins;
+std::vector<Neutrino::OutputPlugin *> outputPlugins;
+Neutrino::EvaluatorPlugin *evaluatorPlugin = nullptr;
+//Neutrino::MutatorPlugin *mutator = nullptr;
+
+bool InitializeInputs(const std::string &cfgFile) {
+	if (config.find("inputs") == config.end()) {
+		printf("No input plugins specified in %s\n", cfgFile.c_str());
+		return false;
+	}
+
+	if (!config["inputs"].is_object()) {
+		printf("%s: inputs field must be an object\n", cfgFile.c_str());
+		return false;
+	}
+
+	nlohmann::json iCfg = config["inputs"];
+
+	for (json::iterator it = iCfg.begin(); it != iCfg.end(); ++it) {
+		Neutrino::InputPlugin *tmp = plugins.GetInstance<Neutrino::InputPlugin>(it.key().c_str());
+
+		if (!tmp->SetConfig(it.value())) {
+			tmp->ReleaseInstance();
+		} else {
+			inputPlugins.push_back(tmp);
+		}
+	}
+
+	testInputQueue = new InputQueue(inputPlugins.size() + 1);
+
+	return true;
+}
+
+bool RunInputs(bool onlyPersistent) {
+	for (unsigned int i = 0; i < inputPlugins.size(); ++i) {
+		if (!onlyPersistent || inputPlugins[i]->IsPersistent()) {
+			if (inputPlugins[i]->HasNextTest()) {
+				Neutrino::Test tst;
+				while (inputPlugins[i]->GetNextTest(tst)) {
+					testInputQueue->Enqueue(i, tst);
+				}
+			}
+		}
+	}
+
+	return true;
+}
+
+bool ExecuteTests() {
+	Neutrino::Test test;
+
+	environment->InitExec((Neutrino::UINTPTR)Payload);
+
+	while (testInputQueue->Dequeue(test)) {
+		environment->Go((Neutrino::UINTPTR)Payload, test.size, test.buffer);
+		evaluatorPlugin->Evaluate(environment->GetResult());
+	}
+
+
+	return true;
+}
+
+bool InitializeOutputs(const std::string &cfgFile) {
+	if (config.find("outputs") == config.end()) {
+		printf("No output plugins specified in %s\n", cfgFile.c_str());
+		return false;
+	}
+
+	if (!config["outputs"].is_object()) {
+		printf("%s: outputs field must be an object\n", cfgFile.c_str());
+		return false;
+	}
+
+	nlohmann::json iCfg = config["outputs"];
+
+	for (json::iterator it = iCfg.begin(); it != iCfg.end(); ++it) {
+		Neutrino::OutputPlugin *tmp = plugins.GetInstance<Neutrino::OutputPlugin>(it.key().c_str());
+
+		if (!tmp->SetConfig(it.value())) {
+			tmp->ReleaseInstance();
+		}
+		else {
+			outputPlugins.push_back(tmp);
+		}
+	}
+
+	return true;
+}
+
+bool InitializeEvaluator(const std::string &cfgFile) {
+	if (config.find("evaluator") == config.end()) {
+		printf("No evaluator plugin specified in %s\n", cfgFile.c_str());
+		return false;
+	}
+
+	if (!config["evaluator"].is_object()) {
+		printf("%s: evaluator field must be an object\n", cfgFile.c_str());
+		return false;
+	}
+
+	nlohmann::json iCfg = config["evaluator"];
+
+	if (iCfg.find("plugin") == iCfg.end()) {
+		printf("evaluator.plugin must specify a plugin\n");
+		return false;
+	}
+
+	nlohmann::json iPlg = iCfg["plugin"];
+
+	Neutrino::EvaluatorPlugin *tmp = plugins.GetInstance<Neutrino::EvaluatorPlugin>(iPlg.get<std::string>().c_str());
+
+	if (!tmp) {
+		printf("Couldn't get instance of %s plugin\n", iPlg.get<std::string>().c_str());
+		return false;
+	}
+
+	if (!tmp->SetConfig(iCfg)) {
+		tmp->ReleaseInstance();
+		printf("Couldn't configure %s plugin\n", iPlg.get<std::string>().c_str());
+		return false;
+	}
+
+	evaluatorPlugin = tmp;
+
+	const Neutrino::EnumSet<Neutrino::ResultType> *res = tmp->GetInputType();
+
+	if (*res == Neutrino::ResultType::TRACE) {
+		environment = &traceEnvironment;
+	} else if (*res == Neutrino::ResultType::TUPLE) {
+		environment = &tupleEnvironment;
+	} else {
+		printf("Unsupported evaluator input type\n");
+		return false;
+	}
+
+	return true;
+}
+
+bool Output(Neutrino::Test &test) {
+	for (auto &it : outputPlugins) {
+		it->WriteTest(test);
+	}
+	return true;
+}
 
 
 
 int main(int argc, const char *argv[]) {
-	TIME_FREQ_T liFreq;
+	// Parse the command line
+	ParseCmdLine(argc, argv);
+
+	// Exit fast for the simple cmdline options
+	if (opt.isSet("-h")) {
+		std::string usage;
+		opt.getUsage(usage);
+		printf("%s", usage.c_str());
+		return 0;
+	}
+
+
+	plugins.Scan();
+	plugins.IdentifyAll();
+	if (opt.isSet("-l")) {
+		plugins.PrintAll();
+		return 0;
+	}
+
+	// Parse the config file
+
+	std::string cfgFile;
+	if (opt.isSet("-c")) {
+		opt.get("-c")->getString(cfgFile);
+	} else {
+		cfgFile = "neutrino.json";
+	}
+
+	if (!ParseConfigFile(cfgFile.c_str())) {
+		return 0;
+	}
+
+	// Do some meaningful work
+	if (!InitializeInputs(cfgFile)) {
+		return 0;
+	}
+
+	if (!InitializeEvaluator(cfgFile)) {
+		return 0;
+	}
+
+	if (!RunInputs(false)) {
+		return 0;
+	}
+
+	if (!InitializeOutputs(cfgFile)) {
+		return 0;
+	}
+
+	while (true) {
+		ExecuteTests();
+		RunInputs(true);
+		break;
+	}
+	
+	/*TIME_FREQ_T liFreq;
 	TIME_T liStart, liStop;
 	TIME_RES_T liTotal;
 
@@ -164,53 +374,30 @@ int main(int argc, const char *argv[]) {
 	GET_COUNTER(liStart, liStop, liFreq, liTotal);
 	printf("Native runtime: %.6lf\n", liTotal);
 
+	Neutrino::BYTE *bIn = (Neutrino::BYTE *)Payload;
+	Neutrino::TranslationState state;
 
-	// Parse the command line
-	ParseCmdLine(argc, argv);
-
-	// Exit fast for the simple cmdline options
-	if (opt.isSet("-h")) {
-		std::string usage;
-		opt.getUsage(usage);
-		printf("%s", usage.c_str());
-		return 0;
-	}
-
-	if (opt.isSet("-l")) {
-		plugins.Scan();
-		plugins.IdentifyAll();
-		plugins.PrintAll();
-		return 0;
-	}
-
-	// Parse the config file
-	std::string cfgFile;
-	if (opt.isSet("-c")) {
-		opt.get("-c")->getString(cfgFile);
-	} else {
-		cfgFile = "neutrino.json";
-	}
-
-	if (!ParseConfigFile(cfgFile.c_str())) {
-		return 0;
-	}
-
-	// Do some meaningful work
-
-	Neutrino::BYTE buffer[40], *bOut = buffer, *bIn = (Neutrino::BYTE *)Payload;
-	Neutrino::InstructionState state;
-
-	environment.InitExec((Neutrino::UINTPTR)Payload);
+	traceEnvironment.InitExec((Neutrino::UINTPTR)Payload);
 
 	START_COUNTER(liStart, liFreq);
 	for (int n = 0; n < 1000; ++n) {
 		for (int i = 0; i < testCount; ++i) {
-			environment.Go((Neutrino::UINTPTR)Payload, tests[i].length, tests[i].test);
+			traceEnvironment.Go((Neutrino::UINTPTR)Payload, tests[i].length, tests[i].test);
 		}
 	}
 	GET_COUNTER(liStart, liStop, liFreq, liTotal);
-    printf("Translated runtime: %.6lf\n", liTotal);
+    printf("Translated<trace> runtime: %.6lf\n", liTotal);
 
+
+	tupleEnvironment.InitExec((Neutrino::UINTPTR)Payload);
+	START_COUNTER(liStart, liFreq);
+	for (int n = 0; n < 1000; ++n) {
+		for (int i = 0; i < testCount; ++i) {
+			tupleEnvironment.Go((Neutrino::UINTPTR)Payload, tests[i].length, tests[i].test);
+		}
+	}
+	GET_COUNTER(liStart, liStop, liFreq, liTotal);
+	printf("Translated<tuple> runtime: %.6lf\n", liTotal);*/
 
 	return 0;
 }

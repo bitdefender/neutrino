@@ -7,6 +7,7 @@
 #include "Neutrino.Types.h"
 #include "Neutrino.Translator.h"
 #include "Neutrino.Memory.h"
+#include "Neutrino.Result.h"
 
 namespace Neutrino {
 
@@ -64,8 +65,18 @@ namespace Neutrino {
 		~Allocator();
 	};
 
-	class Environment {
+	class AbstractEnvironment {
+	public :
+		virtual void InitExec(UINTPTR entry) = 0;
+		virtual void Go(UINTPTR entry, unsigned int size, unsigned char *buffer) = 0;
+		virtual AbstractResult *GetResult() = 0;
+	};
+
+	template <typename STRATEGY>
+	class Environment : public AbstractEnvironment {
 	private :
+		Translator<STRATEGY> translator;
+
 		/* A hash for basic block lookup */
 		BlockHash<0x10000> hash;
 
@@ -82,14 +93,10 @@ namespace Neutrino {
 		UINTPTR virtualStack;
 		UINTPTR jumpBuff;
 
-		Translator &translator;
 		UINTPTR solveDirectJump, fixDirectJump;
 		UINTPTR solveIndirectJump, fixIndirectJump;
 
-		/* Trace buffer */
-		UINTPTR trace[1 << 16];
-		int traceIndex;
-		UINTPTR regBackup1, regBackup2;
+		UINTPTR jumpReg;
 
 		static void FixDirectJump(Environment *env);
 		static void FixIndirectJump(Environment *env);
@@ -103,12 +110,13 @@ namespace Neutrino {
 		void Fixup(const CodePatch &dest);
 		bool AllocOutBuffer();
 	public :
-		void InitExec(UINTPTR entry);
+		virtual void InitExec(UINTPTR entry);
 
-		Environment(Translator &t);
+		Environment();
 		BYTE *Translate(UINTPTR addr);
 		
-		void Go(UINTPTR entry, unsigned int size, unsigned char *buffer);
+		virtual void Go(UINTPTR entry, unsigned int size, unsigned char *buffer);
+		virtual AbstractResult *GetResult();
 	};
 	
 };

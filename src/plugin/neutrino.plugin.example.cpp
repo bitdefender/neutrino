@@ -1,9 +1,9 @@
 #include "../Neutrino.Plugin.h"
 
 extern "C" {
-	__declspec(dllexport) PluginInfo NeutrinoModuleInfo = {
+	__declspec(dllexport) Neutrino::PluginInfo NeutrinoModuleInfo = {
 		{0, 0, 1},
-		PluginType::UNKNOWN,
+		Neutrino::PluginType::UNKNOWN,
 		"Example plugin",
 		"Neutrino plugin example."
 	};
