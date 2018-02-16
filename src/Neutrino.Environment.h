@@ -8,10 +8,13 @@
 #include "Neutrino.Translator.h"
 #include "Neutrino.Memory.h"
 #include "Neutrino.Result.h"
+#include "Neutrino.Heap.h"
 
 namespace Neutrino {
 
 	struct BasicBlock {
+		static Heap heap;
+
 		UINTPTR address;
 		BYTE *code;
 		bool translated;
@@ -22,12 +25,19 @@ namespace Neutrino {
 		} dests[2];
 
 		bool Equals(UINTPTR rhs);
+
+		void * operator new(size_t size);
+		void operator delete(void * p);
 	};
 
 	template <int SIZE> 
 	class BlockHash {
 	private:
 		struct List {
+			static Heap heap;
+			void * operator new(size_t size);
+			void operator delete(void * p);
+
 			BasicBlock *item;
 			List *next;
 		};
@@ -68,8 +78,9 @@ namespace Neutrino {
 	class AbstractEnvironment {
 	public :
 		virtual void InitExec(UINTPTR entry) = 0;
-		virtual void Go(UINTPTR entry, unsigned int size, unsigned char *buffer) = 0;
+		virtual void Go(unsigned int size, unsigned char *buffer) = 0;
 		virtual AbstractResult *GetResult() = 0;
+		virtual int GetCoverage() = 0;
 	};
 
 	template <typename STRATEGY>
@@ -81,12 +92,13 @@ namespace Neutrino {
 		BlockHash<0x10000> hash;
 
 		/* Management structure for translated code */
-		Allocator<ExecBuffer<1 << 16> > codeBuff;
+		Allocator<ExecBuffer<1 << 20> > codeBuff;
 
 		
-		ExecBuffer<1 << 16> *lastBuff;
+		ExecBuffer<1 << 20> *lastBuff;
 		BYTE *outBuffer;
 		int outSize;
+		int coverage;
 
 		/* Paralell stack used for translation */
 		BYTE stackBuffer[32768];
@@ -97,6 +109,7 @@ namespace Neutrino {
 		UINTPTR solveIndirectJump, fixIndirectJump;
 
 		UINTPTR jumpReg;
+		UINTPTR pEntry;
 
 		static void FixDirectJump(Environment *env);
 		static void FixIndirectJump(Environment *env);
@@ -115,10 +128,11 @@ namespace Neutrino {
 		Environment();
 		BYTE *Translate(UINTPTR addr);
 		
-		virtual void Go(UINTPTR entry, unsigned int size, unsigned char *buffer);
+		virtual void Go(unsigned int size, unsigned char *buffer);
 		virtual AbstractResult *GetResult();
+		virtual int GetCoverage();
 	};
-	
+
 };
 
 #include "Neutrino.Environment.hpp"

@@ -66,10 +66,20 @@ public :
 
 class FileInputPlugin : public Neutrino::InputPlugin {
 private :
-	std::vector<DirectoryMonitor> dirs;
-	std::vector<DirectoryMonitor>::iterator cDir;
+	static const Neutrino::TestState states[];
+
+	std::vector<DirectoryMonitor> dirs[2];
+	std::vector<DirectoryMonitor>::iterator cDirs[2];
+	int cSel;
+
+	bool SetDirs(const nlohmann::json &cfg, const char *key, std::vector<DirectoryMonitor>& dirs);
+
+	bool HasNextTestDir(int idx);
+	bool GetNextTestDir(int idx, Neutrino::Test & out);
 
 public :
+	FileInputPlugin();
+
 	virtual bool SetConfig(const nlohmann::json &cfg);
 	virtual void ReleaseInstance();
 
@@ -79,25 +89,40 @@ public :
 	virtual bool GetNextTest(Neutrino::Test &out);
 };
 
-bool FileInputPlugin::SetConfig(const nlohmann::json &cfg) {
-	if (cfg.find("dirs") == cfg.end()) {
+const Neutrino::TestState FileInputPlugin::states[] = { Neutrino::TestState::NEW, Neutrino::TestState::EXCEPTED };
+
+bool FileInputPlugin::SetDirs(const nlohmann::json &cfg, const char *key, std::vector<DirectoryMonitor> &dirs) {
+	if (cfg.find(key) == cfg.end()) {
 		printf("File input plugin needs dir config\n");
 		return false;
 	}
 
-	if (!cfg["dirs"].is_array()) {
-		printf("File input plugin: dirs field must be an array\n");
+	if (!cfg[key].is_array()) {
+		printf("File input plugin: srcDirs field must be an array\n");
 		return false;
 	}
 
-	for (auto &it : cfg["dirs"]) {
+	for (auto &it : cfg[key]) {
 		if (it.is_string()) {
 			dirs.push_back(DirectoryMonitor(it.get<std::string>()));
 		}
 	}
+}
 
-	cDir = dirs.begin();
-	//cItr->replace_filename(cDir);// = std::experimental::filesystem::directory_iterator(cDir);
+FileInputPlugin::FileInputPlugin() {
+	cSel = 0;
+}
+
+bool FileInputPlugin::SetConfig(const nlohmann::json &cfg) {
+	
+	const char keys[][12] = { "dirs", "exceptions" };
+
+	for (int i = 0; i < 2; ++i) {
+		SetDirs(cfg, keys[i], dirs[i]);
+		cDirs[i] = dirs[i].begin();
+	}
+
+	//cItr->replace_filename(cSrcDir);// = std::experimental::filesystem::directory_iterator(cSrcDir);
 
 	return true;
 }
@@ -110,23 +135,45 @@ bool FileInputPlugin::IsPersistent() const {
 	return false;
 }
 
-bool FileInputPlugin::HasNextTest() {
-	return (cDir != dirs.end()) && (cDir->HasNextTest());
+bool FileInputPlugin::HasNextTestDir(int idx) {
+	return (cDirs[idx] != dirs[idx].end()) && (cDirs[idx]->HasNextTest());
 }
 
-bool FileInputPlugin::GetNextTest(Neutrino::Test &out) {
+bool FileInputPlugin::HasNextTest() {
+	return HasNextTestDir(0) || HasNextTestDir(1);
+}
 
-	while (!cDir->HasNextTest()) {
-		cDir++;
+bool FileInputPlugin::GetNextTestDir(int idx, Neutrino::Test &out) {
+	if (cDirs[idx] == dirs[idx].end()) {
+		return false;
+	}
 
-		if (cDir == dirs.end()) {
+	while (!cDirs[idx]->HasNextTest()) {
+		cDirs[idx]++;
+
+		if (cDirs[idx] == dirs[idx].end()) {
 			return false;
 		}
 
-		cDir->Rewind();
+		cDirs[idx]->Rewind();
 	}
 
-	return cDir->GetNextTest(out);
+	return cDirs[idx]->GetNextTest(out);
+}
+
+bool FileInputPlugin::GetNextTest(Neutrino::Test &out) {
+	bool ret = GetNextTestDir(cSel, out);
+
+	if (!ret) {
+		cSel ^= 1;
+
+		ret = GetNextTestDir(cSel, out);
+	}
+
+	out.state = states[cSel];
+
+	cSel ^= 1;
+	return ret;
 }
 
 

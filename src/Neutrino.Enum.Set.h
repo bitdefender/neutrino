@@ -58,12 +58,12 @@ namespace Neutrino {
 
 		bool operator==(ENUM e) const {
 			int ee = (int)e;
-			return set[ee >> 5] & (1 << (ee & 0x1F));
+			return (set[ee >> 5] & (1 << (ee & 0x1F))) != 0;
 		}
 
 		bool operator!=(ENUM e) const {
 			int ee = (int)e;
-			return !(set[ee >> 5] & (1 << (ee & 0x1F)));
+			return (set[ee >> 5] & (1 << (ee & 0x1F))) == 0;
 		}
 	};
 

@@ -31,6 +31,19 @@ _RET_ADDR_FUNC_(stdcall, 4, void *, void *, void *, void *);*/
 
 namespace Neutrino {
 	template<int SIZE>
+	Heap BlockHash<SIZE>::List::heap(1 << 20);
+
+	template<int SIZE>
+	inline void * BlockHash<SIZE>::List::operator new(size_t size) {
+		return heap.Alloc(size);
+	}
+
+	template<int SIZE>
+	inline void BlockHash<SIZE>::List::operator delete(void *p) {
+		heap.Free(p);
+	}
+
+	template<int SIZE>
 	inline unsigned int BlockHash<SIZE>::Hash(UINTPTR addr) {
 		return addr % (SIZE - 1);
 	}
@@ -55,7 +68,7 @@ namespace Neutrino {
 			}
 		}
 
-		// TODO: use a faster allcoator here
+		// TODO: use a faster allocator here
 		BasicBlock *ret = new BasicBlock();
 		ret->address = addr;
 		ret->code = stub;
@@ -218,6 +231,8 @@ namespace Neutrino {
 			0xE9, 0x00, 0x00, 0x00, 0x00
 		};
 
+		pEntry = entry;
+
 		memcpy(outBuffer, code, sizeof(code));
 		entry = (UINTPTR)outBuffer;
 		*(UINTPTR *)(&(outBuffer[0x01])) = (UINTPTR)solveDirectJump - ((UINTPTR)outBuffer + sizeof(code));
@@ -259,11 +274,14 @@ namespace Neutrino {
 		InitSolveIndirectJump();
 
 		virtualStack = (UINTPTR)(stackBuffer + sizeof(stackBuffer) - 4);
+		coverage = 0;
 	}
 
 	template <typename STRATEGY>
 	BYTE *Environment<STRATEGY>::Translate(UINTPTR addr) {
 		TranslationState state;
+
+		coverage++;
 
 		const BYTE *rIn = (BYTE *)addr;
 		BYTE *rOut = outBuffer, *rRet = outBuffer; // place buffer here
@@ -289,12 +307,12 @@ namespace Neutrino {
 	unsigned int __cdecl RetAddr_cdecl_2(unsigned int, unsigned char *);
 
 	template <typename STRATEGY>
-	void Environment<STRATEGY>::Go(UINTPTR entry, unsigned int size, unsigned char *buffer) {
+	void Environment<STRATEGY>::Go(unsigned int size, unsigned char *buffer) {
 
-		BasicBlock *bbInit = hash.Find(entry);
+		BasicBlock *bbInit = hash.Find(pEntry);
 
 		translator.Reset();
-		translator.PushBasicBlock(entry);
+		translator.PushBasicBlock(pEntry);
 
 		TFunc funcPtr[] = {
 			(TFunc)RetAddr_cdecl_2,
@@ -315,6 +333,11 @@ namespace Neutrino {
 	template<typename STRATEGY>
 	inline AbstractResult *Environment<STRATEGY>::GetResult() {
 		return translator.GetResult();
+	}
+
+	template<typename STRATEGY>
+	inline int Environment<STRATEGY>::GetCoverage() {
+		return coverage;
 	}
 };
 

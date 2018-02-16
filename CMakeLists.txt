@@ -19,9 +19,12 @@ set(headers
 	src/Neutrino.Plugin.Manager.h
 	src/Neutrino.Module.h
 	src/Neutrino.Memory.h
+	src/Neutrino.Heap.h
 	src/Neutrino.Result.h
+
 	src/Neutrino.Strategy.Trace.h
 	src/Neutrino.Strategy.Tuple.h
+	src/Neutrino.Simulation.Trace.h
 
 	src/Neutrino.Test.h
 
@@ -36,6 +39,15 @@ set(headers
 	src/Neutrino.Input.Plugin.h
 	src/Neutrino.Output.Plugin.h
 	src/Neutrino.Evaluator.Plugin.h
+	src/Neutrino.Mutator.Plugin.h
+	src/Neutrino.Logger.Plugin.h
+
+	src/Neutrino.Bloom.Filter.h
+	src/Neutrino.Bloom.Filter.hpp
+	src/Neutrino.Corpus.h
+
+	src/MurmurHash3.h
+	src/TinySHA1.h
 )
 
 set(sources
@@ -43,8 +55,16 @@ set(sources
 	src/Neutrino.Translator.cpp
 	src/Neutrino.Environment.cpp
 	src/Neutrino.Plugin.Manager.cpp
+
 	src/Neutrino.Strategy.Trace.cpp
 	src/Neutrino.Strategy.Tuple.cpp
+
+	src/Neutrino.Simulation.Trace.cpp
+
+	src/Neutrino.Heap.cpp
+
+	src/Neutrino.Corpus.cpp
+	src/MurmurHash3.cpp
 )
 
 set(payload_sources
@@ -82,6 +102,14 @@ add_executable(neutrino
 	${headers}
 )
 
+set(debugger_sources
+	src/Quark.Debugger.cpp
+)
+
+add_executable(quark
+	${debugger_sources}
+)
+
 if (LINUX)
     target_link_libraries(neutrino dl stdc++fs)
 endif()
@@ -94,27 +122,56 @@ set(plugin_sources
 	src/plugin/Neutrino.Plugin.Example.cpp
 )
 
-
-add_library(neutrino.plugin.example SHARED
-	${plugin_sources}
-	${plugin_headers}
-)
-
-set(evaluator_plugin_sources
-	src/plugin/Evaluator.Plugin.Example.cpp
-)
-
-add_library(evaluator.plugin.example SHARED
-	${evaluator_plugin_sources}
-	${plugin_headers}
-)
-
 set(file_input_plugin_sources
 	src/plugin/File.Input.Plugin.cpp
 )
 
-add_library(file.input.plugin.example SHARED
+add_library(file.input.plugin SHARED
 	${file_input_plugin_sources}
+	${plugin_headers}
+)
+
+set(file_output_plugin_sources
+	src/plugin/File.Output.Plugin.cpp
+)
+
+add_library(file.output.plugin SHARED
+	${file_output_plugin_sources}
+	${plugin_headers}
+)
+
+
+set(virtual_memory
+	src/modules/Module.Layout.h
+	src/modules/Module.Layout.Windows.cpp
+	src/modules/Module.Layout.Linux.cpp
+)
+
+set(trace_evaluator_plugin_sources
+	src/plugin/Trace.Evaluator.Plugin.cpp
+)
+
+add_library(trace.evaluator.plugin SHARED
+	${trace_evaluator_plugin_sources}
+	${plugin_headers}
+	${virtual_memory}
+)
+
+set(mutator_plugin_sources
+	src/plugin/Mutator.Plugin.cpp
+)
+
+add_library(mutator.plugin SHARED
+	${mutator_plugin_sources}
+	${plugin_headers}
+)
+
+set(console_plugin_sources
+	src/plugin/Console.Logger.Plugin.cpp
+)
+
+add_library(console.logger.plugin SHARED
+	${console_plugin_sources}
 	${plugin_headers}
 )
 

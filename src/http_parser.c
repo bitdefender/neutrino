@@ -1906,7 +1906,7 @@ reexecute:
            * problem with this is that this makes it difficult for the test
            * harness to distinguish between complete-on-EOF and
            * complete-on-length. It's not clear that this distinction is
-           * important for applications, but let's keep it for now.
+           * important for applications, but let's keep it for currentTime.
            */
           CALLBACK_DATA_(body, p - body_mark + 1, p - data);
           REEXECUTE();

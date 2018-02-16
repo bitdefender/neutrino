@@ -317,6 +317,7 @@ void test_simple(const char *buf) {
 }
 
 int Payload(unsigned int size, unsigned char *test) {
+	__asm int 3;
 	test_simple((char *)test);
 	return 0;
 }

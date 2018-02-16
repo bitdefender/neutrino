@@ -9,7 +9,8 @@ namespace Neutrino {
 		INPUT,
 		OUTPUT,
 		EVALUATOR,
-		MUTATOR
+		MUTATOR,
+		LOGGING
 	};
 
 	struct PluginVersion {

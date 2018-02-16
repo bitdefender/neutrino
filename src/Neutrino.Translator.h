@@ -57,6 +57,8 @@ namespace Neutrino {
 		DWORD TranslateCallModRM(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state);
 		DWORD TranslateJumpModRM(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state);
 
+		DWORD TranslateFarJumpInstr(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state);
+
 		DWORD TranslateCall(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state);
 		DWORD TranslateRet(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state);
 		DWORD TranslateRetn(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state);

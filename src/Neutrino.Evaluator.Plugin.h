@@ -10,7 +10,7 @@ namespace Neutrino {
 	class EvaluatorPlugin : public Plugin {
 	public:
 		virtual const EnumSet<ResultType> *GetInputType() const = 0;
-		virtual double Evaluate(AbstractResult *input) = 0;
+		virtual double Evaluate(const Test &test, const AbstractResult *result) = 0;
 	};
 };
 

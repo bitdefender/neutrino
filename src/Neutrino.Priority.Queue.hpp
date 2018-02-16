@@ -17,13 +17,13 @@ namespace Neutrino {
 			minP = priority;
 
 			int tmp = LCHILD(sp);
-			if ((tmp < size) && (data[tmp].first < minP)) {
+			if ((tmp < size) && (data[tmp].first > minP)) {
 				spp = tmp;
 				minP = data[tmp].first;
 			}
 
 			tmp = RCHILD(sp);
-			if ((tmp < size) && (data[tmp] < data[spp])) {
+			if ((tmp < size) && (data[tmp].first > data[spp].first)) {
 				spp = tmp;
 				minP = data[tmp].first;
 			}
@@ -56,7 +56,12 @@ namespace Neutrino {
 	}
 
 	template<typename T, int SZ>
-	inline bool PriorityQueue<T, SZ>::Enqueue(const double priority, const T &input) {
+	inline int PriorityQueue<T, SZ>::Count() const {
+		return size;
+	}
+
+	template<typename T, int SZ>
+	inline bool PriorityQueue<T, SZ>::Enqueue(const double priority, T &input) {
 		if (IsFull()) {
 			return false;
 		}
@@ -64,13 +69,14 @@ namespace Neutrino {
 		int sp = size, spp = PARENT(sp);
 		size++;
 
-		while ((sp > 0) && (priority < data[spp].first)) {
+		while ((sp > 0) && (priority > data[spp].first)) {
 			data[sp] = std::move(data[spp]);
 			sp = spp;
 			spp = PARENT(sp);
 		}
 
-		data[sp] = std::move(std::make_pair(priority, input));
+		data[sp].first = priority;
+		data[sp].second = std::move(input); //= std::move(std::make_pair(priority, input));
 		return true;
 	}
 

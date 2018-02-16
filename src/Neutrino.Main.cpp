@@ -1,7 +1,10 @@
 #include <cstdio>
 #include <cstdint>
+#include <ctime>
 
 #include <vector>
+
+#include <memory>
 
 #include "ezOptionParser/ezOptionParser.h"
 #include "json/json.hpp"
@@ -9,6 +12,9 @@
 #include "Neutrino.Module.h"
 #include "Neutrino.Plugin.Manager.h"
 #include "Neutrino.Environment.h"
+
+#include "Neutrino.Simulation.Trace.h"
+
 #include "Neutrino.Strategy.Trace.h"
 #include "Neutrino.Strategy.Tuple.h"
 #include "Neutrino.Translator.h"
@@ -18,14 +24,22 @@
 #include "Neutrino.Fair.Queue.h"
 #include "Neutrino.Priority.Queue.h"
 
+#include "Neutrino.Corpus.h"
+
 #include "Neutrino.Input.Plugin.h"
 #include "Neutrino.Output.Plugin.h"
 #include "Neutrino.Evaluator.Plugin.h"
+#include "Neutrino.Mutator.Plugin.h"
+#include "Neutrino.Logger.Plugin.h"
 
 #include "Payload.h"
 #include "Buffers.h"
 
 #define MAX_CFG_SIZE (1 << 20)
+
+#ifdef _MSC_VER
+#include "psapi.h"
+#endif
 
 #ifdef _MSC_VER
 
@@ -58,6 +72,7 @@ typedef double TIME_RES_T;
 
 using namespace nlohmann;
 
+Neutrino::Status processStatus;
 ez::ezOptionParser opt;
 
 void ParseCmdLine(int argc, const char *argv[]) {
@@ -148,19 +163,80 @@ bool ParseConfigFile(const char *fName) {
 	return true;
 }
 
-
-typedef Neutrino::FairQueue<Neutrino::Test, 1 << 15> InputQueue;
+Neutrino::Corpus corpus;
+typedef Neutrino::FairQueue<std::shared_ptr<Neutrino::Test>, 1 << 15> InputQueue;
 InputQueue *testInputQueue;
+int getTestBucket = 0;
+
+extern "C" __declspec(dllexport) Neutrino::Test *currentTest = nullptr;
+
+class MutatorDestinationAdapter : public Neutrino::TestDestination {
+private :
+	InputQueue &queue;
+public :
+	MutatorDestinationAdapter(InputQueue &q) : queue(q) { }
+
+	virtual bool EnqueueTest(Neutrino::Test &test) {
+		auto itm = corpus.AddTest(test);
+
+		if (itm->state == Neutrino::TestState::NEW) {
+			processStatus.tests.queued++;
+			return queue.Enqueue(getTestBucket, itm);
+		}
+
+		return true;
+	}
+
+	virtual bool RequeueTest(double priority, Neutrino::Test &test) {
+		return false;
+	}
+} *dstAdapter;
+
+typedef Neutrino::PriorityQueue<std::shared_ptr<Neutrino::Test>, 1 << 16> MutationQueue;
+MutationQueue testMutationQueue;
+
+class MutatorSourceAdapter : public Neutrino::TestSource {
+private :
+	MutationQueue &queue;
+public :
+	MutatorSourceAdapter(MutationQueue &q) : queue(q) { }
+
+	virtual int GetAvailableTestCount() const {
+		return queue.Count();
+	}
+	
+	virtual bool GetSingleTest(ExtractSingleType eType, std::shared_ptr<Neutrino::Test> &test) {
+		double priority;
+		switch (eType) {
+			case ExtractSingleType::EXTRACT_BEST :
+				return queue.Dequeue(priority, test);
+			case ExtractSingleType::EXTRACT_PROBABILISTIC :
+				return false;
+			case ExtractSingleType::EXTRACT_RANDOM :
+				return false;
+			default :
+				return false;
+		}
+	}
+} srcAdapter(testMutationQueue);
+
 
 Neutrino::PluginManager plugins;
+Neutrino::AbstractEnvironment *environment;
+
+#ifdef NEUTRINO_SIMULATION
+Neutrino::SimulationTraceEnvironment traceEnvironment;
+Neutrino::SimulationTupleEnvironment tupleEnvironment;
+#else
 Neutrino::Environment<Neutrino::TraceStrategy> traceEnvironment;
 Neutrino::Environment<Neutrino::TupleStrategy> tupleEnvironment;
-Neutrino::AbstractEnvironment *environment;
+#endif
 
 std::vector<Neutrino::InputPlugin *> inputPlugins;
 std::vector<Neutrino::OutputPlugin *> outputPlugins;
+std::vector<Neutrino::LoggerPlugin *> loggerPlugins;
 Neutrino::EvaluatorPlugin *evaluatorPlugin = nullptr;
-//Neutrino::MutatorPlugin *mutator = nullptr;
+Neutrino::MutatorPlugin *mutatorPlugin = nullptr;
 
 bool InitializeInputs(const std::string &cfgFile) {
 	if (config.find("inputs") == config.end()) {
@@ -185,8 +261,9 @@ bool InitializeInputs(const std::string &cfgFile) {
 		}
 	}
 
-	testInputQueue = new InputQueue(inputPlugins.size() + 1);
-
+	getTestBucket = inputPlugins.size();
+	testInputQueue = new InputQueue(getTestBucket + 1);
+	dstAdapter = new MutatorDestinationAdapter(*testInputQueue);
 	return true;
 }
 
@@ -196,7 +273,12 @@ bool RunInputs(bool onlyPersistent) {
 			if (inputPlugins[i]->HasNextTest()) {
 				Neutrino::Test tst;
 				while (inputPlugins[i]->GetNextTest(tst)) {
-					testInputQueue->Enqueue(i, tst);
+					auto itm = corpus.AddTest(tst);
+
+					if (itm->state == Neutrino::TestState::NEW) {
+						testInputQueue->Enqueue(i, itm);
+						processStatus.tests.queued++;
+					}
 				}
 			}
 		}
@@ -205,18 +287,99 @@ bool RunInputs(bool onlyPersistent) {
 	return true;
 }
 
-bool ExecuteTests() {
-	Neutrino::Test test;
-
-	environment->InitExec((Neutrino::UINTPTR)Payload);
-
-	while (testInputQueue->Dequeue(test)) {
-		environment->Go((Neutrino::UINTPTR)Payload, test.size, test.buffer);
-		evaluatorPlugin->Evaluate(environment->GetResult());
+bool Output(Neutrino::Test &test) {
+	for (auto &it : outputPlugins) {
+		it->WriteTest(test);
 	}
+	return true;
+}
 
+bool UpdateProcessStatus() {
+	processStatus.currentTime = clock();
+
+	processStatus.coverage = environment->GetCoverage();
+
+#ifdef _MSC_VER
+	PROCESS_MEMORY_COUNTERS_EX pmc;
+	GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS *)&pmc, sizeof(pmc));
+	
+	processStatus.vmUsed = pmc.PrivateUsage;
+#else
+	processStatus.vmUsed = 0;
+#endif
 
 	return true;
+}
+
+bool Log(Neutrino::Test &test) {
+	if (!UpdateProcessStatus()) {
+		return false;
+	}
+
+	for (auto &it : loggerPlugins) {
+		it->NewTest(processStatus, test);
+	}
+	return true;
+}
+
+bool Ping() {
+	if (!UpdateProcessStatus()) {
+		return false;
+	}
+
+	for (auto &it : loggerPlugins) {
+		it->Ping(processStatus);
+	}
+	return true;
+}
+
+bool Finish() {
+	if (!UpdateProcessStatus()) {
+		return false;
+	}
+
+	for (auto &it : loggerPlugins) {
+		it->Finish(processStatus);
+	}
+	return true;
+}
+
+bool ExecuteTests() {
+	std::shared_ptr<Neutrino::Test> test;
+
+	while (testInputQueue->Dequeue(test)) {
+		processStatus.tests.queued--;
+
+		currentTest = test.get();
+		environment->Go(test->size, test->buffer);
+		currentTest = nullptr;
+
+		test->state = Neutrino::TestState::EXECUTED;
+		processStatus.tests.traced++;
+
+		if (0 == (processStatus.tests.traced % 10000)) {
+			Ping();
+		}
+		
+		double ret = evaluatorPlugin->Evaluate(*test, environment->GetResult());
+		
+		if (0.0 < ret) {
+			test->state = Neutrino::TestState::EVALUATED;
+			processStatus.tests.corpus++;
+			Output(*test);
+			Log(*test);
+		} else {
+			//test->state = Neutrino::TestState::DISCARDED;
+		}
+
+		testMutationQueue.Enqueue(ret, test);
+	}
+
+	return true;
+}
+
+bool ExecuteMutation() {
+	return mutatorPlugin->Perform();
 }
 
 bool InitializeOutputs(const std::string &cfgFile) {
@@ -240,6 +403,32 @@ bool InitializeOutputs(const std::string &cfgFile) {
 		}
 		else {
 			outputPlugins.push_back(tmp);
+		}
+	}
+
+	return true;
+}
+
+bool InitializeLoggers(const std::string &cfgFile) {
+	if (config.find("loggers") == config.end()) {
+		return true;
+	}
+
+	if (!config["loggers"].is_object()) {
+		printf("%s: loggers field must be an object\n", cfgFile.c_str());
+		return false;
+	}
+
+	nlohmann::json iCfg = config["loggers"];
+
+	for (json::iterator it = iCfg.begin(); it != iCfg.end(); ++it) {
+		Neutrino::LoggerPlugin *tmp = plugins.GetInstance<Neutrino::LoggerPlugin>(it.key().c_str());
+
+		if (!tmp->SetConfig(it.value())) {
+			tmp->ReleaseInstance();
+		}
+		else {
+			loggerPlugins.push_back(tmp);
 		}
 	}
 
@@ -295,16 +484,106 @@ bool InitializeEvaluator(const std::string &cfgFile) {
 	return true;
 }
 
-bool Output(Neutrino::Test &test) {
-	for (auto &it : outputPlugins) {
-		it->WriteTest(test);
+bool InitializeMutator(const std::string &cfgFile) {
+	if (config.find("mutator") == config.end()) {
+		printf("No mutator plugin specified in %s\n", cfgFile.c_str());
+		return false;
 	}
+
+	if (!config["mutator"].is_object()) {
+		printf("%s: mutator field must be an object\n", cfgFile.c_str());
+		return false;
+	}
+
+	nlohmann::json iCfg = config["mutator"];
+
+	if (iCfg.find("plugin") == iCfg.end()) {
+		printf("mutator.plugin must specify a plugin\n");
+		return false;
+	}
+
+	nlohmann::json iPlg = iCfg["plugin"];
+
+	Neutrino::MutatorPlugin *tmp = plugins.GetInstance<Neutrino::MutatorPlugin>(iPlg.get<std::string>().c_str());
+
+	if (!tmp) {
+		printf("Couldn't get instance of %s plugin\n", iPlg.get<std::string>().c_str());
+		return false;
+	}
+
+	if (!tmp->SetConfig(iCfg)) {
+		tmp->ReleaseInstance();
+		printf("Couldn't configure %s plugin\n", iPlg.get<std::string>().c_str());
+		return false;
+	}
+
+	tmp->SetSource(&srcAdapter);
+	tmp->SetDestination(dstAdapter);
+
+	mutatorPlugin = tmp;
 	return true;
 }
 
+#define FUZZER_CALL	__cdecl
 
+typedef int(FUZZER_CALL *FnInitEx)();
+typedef	int(FUZZER_CALL *FnUninit)();
+typedef	int(FUZZER_CALL *FnSubmit)(const unsigned int buffSize, const unsigned char *buffer);
+
+
+#include <process.h>
+
+class LibLoader {
+private :
+	HMODULE hMod;
+
+	FnInitEx _init;
+	FnUninit _uninit;
+	FnSubmit _submit;
+
+	int initRet;
+public :
+	LibLoader(const char *libName) {
+		SetErrorMode(SEM_FAILCRITICALERRORS);
+		_set_error_mode(_OUT_TO_STDERR); // disable assert dialog boxes
+		_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_DEBUG);
+		_set_app_type(_crt_console_app);
+
+
+		hMod = LoadLibraryA(libName);
+
+		_init = (FnInitEx)GetProcAddress(hMod, "FuzzerInit");
+		_uninit = (FnUninit)GetProcAddress(hMod, "FuzzerUninit");
+		_submit = (FnSubmit)GetProcAddress(hMod, "FuzzerSubmit");
+
+		initRet = _init();
+	}
+
+	bool IsReady() const {
+		return (0 == initRet);
+	}
+
+	FnSubmit GetEntry() const {
+		return _submit;
+	}
+
+	~LibLoader() {
+		_uninit();
+		FreeLibrary(hMod);
+	}
+};
+
+LibLoader loader("./payload/fuzzer.dll");
 
 int main(int argc, const char *argv[]) {
+	processStatus.startTime = clock();
+
+
+	if (!loader.IsReady()) {
+		printf("Payload initialization failed!\n");
+		return 0;
+	}
+
 	// Parse the command line
 	ParseCmdLine(argc, argv);
 
@@ -354,50 +633,28 @@ int main(int argc, const char *argv[]) {
 		return 0;
 	}
 
+	if (!InitializeLoggers(cfgFile)) {
+		return 0;
+	}
+
+	if (!InitializeMutator(cfgFile)) {
+		return 0;
+	}
+
+	int c = 0;
+
+	environment->InitExec((Neutrino::UINTPTR) loader.GetEntry()  /*Payload*/);
 	while (true) {
 		ExecuteTests();
 		RunInputs(true);
-		break;
-	}
-	
-	/*TIME_FREQ_T liFreq;
-	TIME_T liStart, liStop;
-	TIME_RES_T liTotal;
-
-	GET_FREQ(liFreq);
-	START_COUNTER(liStart, liFreq);
-	for (int n = 0; n < 1000; ++n) {
-		for (int i = 0; i < testCount; ++i) {
-			Payload(tests[i].length, tests[i].test);
+		if (!ExecuteMutation()) {
+			break;
 		}
 	}
-	GET_COUNTER(liStart, liStop, liFreq, liTotal);
-	printf("Native runtime: %.6lf\n", liTotal);
 
-	Neutrino::BYTE *bIn = (Neutrino::BYTE *)Payload;
-	Neutrino::TranslationState state;
+	Finish();
 
-	traceEnvironment.InitExec((Neutrino::UINTPTR)Payload);
-
-	START_COUNTER(liStart, liFreq);
-	for (int n = 0; n < 1000; ++n) {
-		for (int i = 0; i < testCount; ++i) {
-			traceEnvironment.Go((Neutrino::UINTPTR)Payload, tests[i].length, tests[i].test);
-		}
-	}
-	GET_COUNTER(liStart, liStop, liFreq, liTotal);
-    printf("Translated<trace> runtime: %.6lf\n", liTotal);
-
-
-	tupleEnvironment.InitExec((Neutrino::UINTPTR)Payload);
-	START_COUNTER(liStart, liFreq);
-	for (int n = 0; n < 1000; ++n) {
-		for (int i = 0; i < testCount; ++i) {
-			tupleEnvironment.Go((Neutrino::UINTPTR)Payload, tests[i].length, tests[i].test);
-		}
-	}
-	GET_COUNTER(liStart, liStop, liFreq, liTotal);
-	printf("Translated<tuple> runtime: %.6lf\n", liTotal);*/
+	corpus.Stats();
 
 	return 0;
 }

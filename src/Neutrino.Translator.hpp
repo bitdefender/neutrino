@@ -39,6 +39,8 @@ namespace Neutrino {
 	template<int count>
 	inline bool CopyBytes(const BYTE *&bIn, BYTE *&bOut, int &szOut) {
 		if (count >= szOut) {
+			__asm int 3;
+
 			return false;
 		}
 
@@ -199,7 +201,7 @@ namespace Neutrino {
 	}
 
 	template <typename STRATEGY>
-	DWORD Translator<STRATEGY>::TranslateRet(const BYTE *& pIn, BYTE *& pOut, int & szOut, TranslationState & state) {
+	DWORD Translator<STRATEGY>::TranslateRet(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state) {
 		static const BYTE codePfx[] = {
 			0x89, 0x1D, 0x00, 0x00, 0x00, 0x00,					// 0x00 - mov [ebxSave], ebx
 			0x5B												// 0x06 - pop ebx
@@ -334,6 +336,56 @@ namespace Neutrino {
 		return PARSED_OPCODE;
 	}
 
+	#include <intrin.h> 
+
+	static DWORD PopCount(DWORD x) {
+		return __popcnt(x);
+	}
+
+	static bool ClearPrefixes(const BYTE *&pIn, TranslationState &state) {
+		DWORD pfx = state.flags & (FLAG_O16 | FLAG_A16 | FLAG_LOCK | FLAG_REPZ | FLAG_REPNZ | FLAG_GS | FLAG_FS);
+		pIn -= PopCount(pfx);
+		return true;
+	}
+
+	template <typename STRATEGY>
+	DWORD Translator<STRATEGY>::TranslateFarJumpInstr(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state) {
+		//const RiverInstruction &ri, RelocableCodeBuffer &px86, nodep::DWORD &pFlags, nodep::DWORD &instrCounter) {
+		ClearPrefixes(pIn, state);
+		
+		static const unsigned char codePfx[] = {
+			0x8F, 0x05, 0x00, 0x00, 0x00, 0x00,			// 0x00 - pop [ebxSave]
+			0xEB, 0x07,									// 0x06 - jmp $+7
+			0xEA, 0x00, 0x00, 0x00, 0x00, 0x33, 0x00,   // 0x08 - jmpf 0x33:12345678 - the actual syscall
+			0xE8, 0xF4, 0xFF, 0xFF, 0xFF,				// 0x0F - call $-7
+			0x87, 0x1D, 0x00, 0x00, 0x00, 0x00//,		// 0x14 - xchg ebx, [ebxSave]
+			//0x5B										// 0x1A - pop ebx
+		};
+
+		const BYTE *pCode = codePfx;
+		BYTE *pStart = pOut;
+		CopyBytes<sizeof(codePfx)>(pCode, pOut, szOut);
+		state.Patch(PATCH_TYPE_JMP_REG_BKP, 0, (UINTPTR *)&pStart[0x02]);
+		*(int *)&pStart[0x09] = *(int *)&pIn[1];
+		*(short *)&pStart[0x0D] = *(short *)&pIn[5];
+		state.Patch(PATCH_TYPE_JMP_REG_BKP, 0, (UINTPTR *)&pStart[0x16]);
+
+		TouchDynamic(pOut, szOut, state);
+
+		static const BYTE codeSfx[] = {
+			0x8B, 0x1D, 0x00, 0x00, 0x00, 0x00,					// 0x00 - mov ebx, [ebxSave]
+			0xE9, 0x00, 0x00, 0x00, 0x00						// 0x06 - jmp SolveIndirect
+		};
+		pCode = codeSfx;
+		pStart = pOut;
+		CopyBytes<sizeof(codeSfx)>(pCode, pOut, szOut);
+		state.Patch(PATCH_TYPE_JMP_REG_BKP, 0, (UINTPTR *)&pStart[0x02]);
+		state.Patch(PATCH_TYPE_INDIRECT, 0, (UINTPTR *)&pStart[0x07]);
+
+		pIn += 7;
+		state.flags |= FLAG_JUMP;
+		return PARSED_OPCODE;
+	}
 
 	/* Operands */
 
@@ -367,6 +419,9 @@ namespace Neutrino {
 				else if (mod == 0x40) {
 					CopyBytes<1>(pIn, pOut, szOut);
 				}
+
+				// this might be bad!
+				return;
 			}
 		}
 
@@ -419,23 +474,23 @@ namespace Neutrino {
 	typename Translator<STRATEGY>::TranslateOpcodeFunc Translator<STRATEGY>::translateOpcode[2][0x100] = {
 		{
 			/* 0x00 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
-			/* 0x04 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode,
+			/* 0x04 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode,
 			/* 0x08 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
-			/* 0x0C */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslatePrefix<FLAG_EXT>,
+			/* 0x0C */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslatePrefix<FLAG_EXT>,
 
 			/* 0x10 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
-			/* 0x14 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
+			/* 0x14 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
 			/* 0x18 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
-			/* 0x1C */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
+			/* 0x1C */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
 
 			/* 0x20 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
-			/* 0x24 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
+			/* 0x24 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
 			/* 0x28 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
-			/* 0x2C */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
+			/* 0x2C */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
 
-			/* 0x30 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode,
-			/* 0x34 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
-			/* 0x38 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode,
+			/* 0x30 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
+			/* 0x34 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
+			/* 0x38 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
 			/* 0x3C */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
 
 			/* 0x40 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
@@ -459,19 +514,19 @@ namespace Neutrino {
 			/* 0x7C */ &Translator<STRATEGY>::TranslateJxx<1>, &Translator<STRATEGY>::TranslateJxx<1>, &Translator<STRATEGY>::TranslateJxx<1>, &Translator<STRATEGY>::TranslateJxx<1>,
 
 			/* 0x80 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
-			/* 0x84 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
+			/* 0x84 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode,
 			/* 0x88 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
-			/* 0x8C */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
+			/* 0x8C */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode,
 
 			/* 0x90 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
 			/* 0x94 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
 			/* 0x98 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
-			/* 0x9C */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
+			/* 0x9C */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
 
-			/* 0xA0 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode,
-			/* 0xA4 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
+			/* 0xA0 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode,
+			/* 0xA4 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
 			/* 0xA8 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
-			/* 0xAC */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
+			/* 0xAC */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
 
 			/* 0xB0 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
 			/* 0xB4 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
@@ -490,13 +545,13 @@ namespace Neutrino {
 
 			/* 0xE0 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
 			/* 0xE4 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
-			/* 0xE8 */ &Translator<STRATEGY>::TranslateCall, &Translator<STRATEGY>::TranslateJmp<4>, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateJmp<1>,
+			/* 0xE8 */ &Translator<STRATEGY>::TranslateCall, &Translator<STRATEGY>::TranslateJmp<4>, &Translator<STRATEGY>::TranslateFarJumpInstr, &Translator<STRATEGY>::TranslateJmp<1>,
 			/* 0xEC */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
 
 			/* 0xF0 */ &Translator<STRATEGY>::TranslatePrefix<FLAG_LOCK>, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslatePrefix<FLAG_REPNZ>, &Translator<STRATEGY>::TranslatePrefix<FLAG_REPZ>,
 			/* 0xF4 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
 			/* 0xF8 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
-			/* 0xFC */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
+			/* 0xFC */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
 			/* 0xFF */ &Translator<STRATEGY>::TranslateExtOpcode<translateOpcode0xFF>
 		},{
 			/* 0x00 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
@@ -504,14 +559,14 @@ namespace Neutrino {
 			/* 0x08 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
 			/* 0x0C */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
 
-			/* 0x10 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
-			/* 0x14 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
+			/* 0x10 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode,
+			/* 0x14 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr,
 			/* 0x18 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
 			/* 0x1C */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
 
 			/* 0x20 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
 			/* 0x24 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
-			/* 0x28 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
+			/* 0x28 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
 			/* 0x2C */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
 
 			/* 0x30 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
@@ -519,10 +574,10 @@ namespace Neutrino {
 			/* 0x38 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
 			/* 0x3C */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
 
-			/* 0x40 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
-			/* 0x44 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
-			/* 0x48 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
-			/* 0x4C */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
+			/* 0x40 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
+			/* 0x44 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
+			/* 0x48 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
+			/* 0x4C */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
 
 			/* 0x50 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
 			/* 0x54 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode,
@@ -537,7 +592,7 @@ namespace Neutrino {
 			/* 0x70 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
 			/* 0x74 */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
 			/* 0x78 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
-			/* 0x7C */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode,
+			/* 0x7C */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
 
 			/* 0x80 */ &Translator<STRATEGY>::TranslateJxx<4u>, &Translator<STRATEGY>::TranslateJxx<4u>, &Translator<STRATEGY>::TranslateJxx<4u>, &Translator<STRATEGY>::TranslateJxx<4u>,
 			/* 0x84 */ &Translator<STRATEGY>::TranslateJxx<4u>, &Translator<STRATEGY>::TranslateJxx<4u>, &Translator<STRATEGY>::TranslateJxx<4u>, &Translator<STRATEGY>::TranslateJxx<4u>,
@@ -552,15 +607,15 @@ namespace Neutrino {
 			/* 0xA0 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
 			/* 0xA4 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
 			/* 0xA8 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode,
-			/* 0xAC */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode,
+			/* 0xAC */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode,
 
-			/* 0xB0 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
+			/* 0xB0 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode,
 			/* 0xB4 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode,
 			/* 0xB8 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr,
-			/* 0xBC */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr,
+			/* 0xBC */ &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr,
 
-			/* 0xC0 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
-			/* 0xC4 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
+			/* 0xC0 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
+			/* 0xC4 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode,
 			/* 0xC8 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
 			/* 0xCC */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
 
@@ -571,7 +626,7 @@ namespace Neutrino {
 
 			/* 0xE0 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
 			/* 0xE4 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
-			/* 0xE8 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
+			/* 0xE8 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode,
 			/* 0xEC */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcode,
 
 			/* 0xF0 */ &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr, &Translator<STRATEGY>::TranslateOpcodeErr,
@@ -624,23 +679,23 @@ namespace Neutrino {
 	typename Translator<STRATEGY>::TranslateOperandFunc Translator<STRATEGY>::translateOperand[2][0x100] = {
 		{
 			/* 0x00 */ &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand,
-			/* 0x04 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateImm1632Operand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateNoOperand,
+			/* 0x04 */ &Translator<STRATEGY>::TranslateImm8Operand, &Translator<STRATEGY>::TranslateImm1632Operand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateNoOperand,
 			/* 0x08 */ &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand,
-			/* 0x0C */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
+			/* 0x0C */ &Translator<STRATEGY>::TranslateImm8Operand, &Translator<STRATEGY>::TranslateImm1632Operand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 
 			/* 0x10 */ &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand,
-			/* 0x14 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateImm1632Operand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
+			/* 0x14 */ &Translator<STRATEGY>::TranslateImm8Operand, &Translator<STRATEGY>::TranslateImm1632Operand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 			/* 0x18 */ &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand,
-			/* 0x1C */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
+			/* 0x1C */ &Translator<STRATEGY>::TranslateImm8Operand, &Translator<STRATEGY>::TranslateImm1632Operand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 
 			/* 0x20 */ &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand,
-			/* 0x24 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateImm1632Operand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
+			/* 0x24 */ &Translator<STRATEGY>::TranslateImm8Operand, &Translator<STRATEGY>::TranslateImm1632Operand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 			/* 0x28 */ &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand,
-			/* 0x2C */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
+			/* 0x2C */ &Translator<STRATEGY>::TranslateImm8Operand, &Translator<STRATEGY>::TranslateImm1632Operand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 
-			/* 0x30 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateModRMOperand,
-			/* 0x34 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
-			/* 0x38 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateModRMOperand,
+			/* 0x30 */ &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand,
+			/* 0x34 */ &Translator<STRATEGY>::TranslateImm8Operand, &Translator<STRATEGY>::TranslateImm1632Operand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
+			/* 0x38 */ &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand,
 			/* 0x3C */ &Translator<STRATEGY>::TranslateImm8Operand, &Translator<STRATEGY>::TranslateImm1632Operand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 
 			/* 0x40 */ &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateNoOperand,
@@ -670,19 +725,19 @@ namespace Neutrino {
 			/* 0x81 */ &Translator<STRATEGY>::TranslateAggOperand<&Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateImm1632Operand>,
 			/* 0x82 */ &Translator<STRATEGY>::TranslateAggOperand<&Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateImm8Operand>,
 			/* 0x83 */ &Translator<STRATEGY>::TranslateAggOperand<&Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateImm8Operand>,
-			/* 0x84 */ &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
+			/* 0x84 */ &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateModRMOperand,
 			/* 0x88 */ &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand,
-			/* 0x8C */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
+			/* 0x8C */ &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateModRMOperand,
 
 			/* 0x90 */ &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateNoOperand,
 			/* 0x94 */ &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateNoOperand,
 			/* 0x98 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
-			/* 0x9C */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
+			/* 0x9C */ &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 
-			/* 0xA0 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateImm1632Operand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateImm1632Operand,
-			/* 0xA4 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
+			/* 0xA0 */ &Translator<STRATEGY>::TranslateImm8Operand, &Translator<STRATEGY>::TranslateImm1632Operand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateImm1632Operand,
+			/* 0xA4 */ &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateNoOperand,
 			/* 0xA8 */ &Translator<STRATEGY>::TranslateImm8Operand, &Translator<STRATEGY>::TranslateImm1632Operand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateNoOperand,
-			/* 0xAC */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
+			/* 0xAC */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateNoOperand,
 
 			/* 0xB0 */ &Translator<STRATEGY>::TranslateImm8Operand, &Translator<STRATEGY>::TranslateImm8Operand, &Translator<STRATEGY>::TranslateImm8Operand, &Translator<STRATEGY>::TranslateImm8Operand,
 			/* 0xB4 */ &Translator<STRATEGY>::TranslateImm8Operand, &Translator<STRATEGY>::TranslateImm8Operand, &Translator<STRATEGY>::TranslateImm8Operand, &Translator<STRATEGY>::TranslateImm8Operand,
@@ -705,7 +760,7 @@ namespace Neutrino {
 
 			/* 0xE0 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 			/* 0xE4 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
-			/* 0xE8 */ &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateNoOperand,
+			/* 0xE8 */ &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateNoOperand,
 			/* 0xEC */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 
 			/* 0xF0 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
@@ -713,7 +768,7 @@ namespace Neutrino {
 			/* 0xF6 */ &Translator<STRATEGY>::TranslateExtOperand<translateOperand0xF6>,
 			/* 0xF7 */ &Translator<STRATEGY>::TranslateExtOperand<translateOperand0xF7>,
 			/* 0xF8 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
-			/* 0xFC */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
+			/* 0xFC */ &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateModRMOperand,
 			/* 0xFF */ &Translator<STRATEGY>::TranslateExtOperand<translateOperand0xFF>
 		},{
 			/* 0x00 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
@@ -721,14 +776,14 @@ namespace Neutrino {
 			/* 0x08 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 			/* 0x0C */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 
-			/* 0x10 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
-			/* 0x14 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
+			/* 0x10 */ &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateModRMOperand,
+			/* 0x14 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateOperandErr,
 			/* 0x18 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 			/* 0x1C */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 
 			/* 0x20 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 			/* 0x24 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
-			/* 0x28 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
+			/* 0x28 */ &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 			/* 0x2C */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 
 			/* 0x30 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
@@ -736,10 +791,10 @@ namespace Neutrino {
 			/* 0x38 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 			/* 0x3C */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 
-			/* 0x40 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
-			/* 0x44 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
-			/* 0x48 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
-			/* 0x4C */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
+			/* 0x40 */ &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand,
+			/* 0x44 */ &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand,
+			/* 0x48 */ &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand,
+			/* 0x4C */ &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand,
 
 			/* 0x50 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 			/* 0x54 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateModRMOperand,
@@ -755,7 +810,7 @@ namespace Neutrino {
 			/* 0x71 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 			/* 0x74 */ &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 			/* 0x78 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
-			/* 0x7C */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateModRMOperand,
+			/* 0x7C */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand,
 
 			/* 0x80 */ &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateNoOperand,
 			/* 0x84 */ &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateNoOperand, &Translator<STRATEGY>::TranslateNoOperand,
@@ -770,17 +825,20 @@ namespace Neutrino {
 			/* 0xA0 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 			/* 0xA4 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 			/* 0xA8 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateModRMOperand,
-			/* 0xAC */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateModRMOperand,
+			/* 0xAC */ &Translator<STRATEGY>::TranslateAggOperand<&Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateImm8Operand>, 
+			/* 0xAD */ &Translator<STRATEGY>::TranslateOperandErr, 
+			/* 0xAE */ &Translator<STRATEGY>::TranslateOperandErr, 
+			/* 0xAF */ &Translator<STRATEGY>::TranslateModRMOperand,
 
-			/* 0xB0 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
+			/* 0xB0 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateModRMOperand,
 			/* 0xB4 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand,
 			/* 0xB8 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 			/* 0xBA */ &Translator<STRATEGY>::TranslateAggOperand<&Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateImm8Operand>,
 			/* 0xBB */ &Translator<STRATEGY>::TranslateOperandErr,
-			/* 0xBC */ &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateOperandErr,
+			/* 0xBC */ &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateOperandErr,
 
-			/* 0xC0 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
-			/* 0xC4 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
+			/* 0xC0 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateModRMOperand, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
+			/* 0xC4 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateModRMOperand,
 			/* 0xC8 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 			/* 0xCC */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 
@@ -791,7 +849,7 @@ namespace Neutrino {
 
 			/* 0xE0 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
 			/* 0xE4 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
-			/* 0xE8 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,
+			/* 0xE8 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateModRMOperand,
 			/* 0xEC */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateModRMOperand,
 
 			/* 0xF0 */ &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr, &Translator<STRATEGY>::TranslateOperandErr,

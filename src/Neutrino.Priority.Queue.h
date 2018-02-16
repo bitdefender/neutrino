@@ -18,8 +18,9 @@ namespace Neutrino {
 
 		bool IsEmpty() const;
 		bool IsFull() const;
+		int Count() const;
 
-		bool Enqueue(const double priority, const T &input);
+		bool Enqueue(const double priority, T &input);
 		bool Dequeue(double &priority, T &output);
 
 		bool Top(T &output) const;

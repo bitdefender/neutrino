@@ -9,8 +9,8 @@ namespace Neutrino {
 
 	class TraceOutput : public AbstractResult {
 	public :
-		UINTPTR trace[1 << 16];
 		int traceIndex;
+		UINTPTR trace[1 << 26];
 	};
 
 	class TraceStrategy {
