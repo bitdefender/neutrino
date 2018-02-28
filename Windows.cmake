@@ -1,7 +1,5 @@
-set(platform_sources
-    src/Neutrino.Module.Windows.cpp
-    src/Neutrino.Memory.Windows.cpp
-)
+set(platform_src_suffix Windows)
+add_definitions(-D_BUILD_WINDOWS)
 
 set(neutrino_libs)
 

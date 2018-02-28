@@ -58,6 +58,11 @@ set(neutrino_sources
 	src/MurmurHash3.cpp
 )
 
+set(platform_sources
+    src/Neutrino.Module.${platform_src_suffix}.cpp
+    src/Neutrino.Memory.${platform_src_suffix}.cpp
+)
+
 set(payload_sources
 	src/http_parser.c
 	src/http_parser.h
