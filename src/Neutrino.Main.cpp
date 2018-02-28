@@ -575,7 +575,58 @@ public :
 
 LibLoader loader("./payload/fuzzer.dll");
 
+LRESULT CALLBACK AssertWindowMonitor(
+	_In_ int    nCode,
+	_In_ WPARAM wParam,
+	_In_ LPARAM lParam
+) {
+
+	const char cName[] = "#32770";
+
+	if (HSHELL_WINDOWCREATED == nCode) {
+		
+		char winClass[256];
+
+		HWND hWin = (HWND)wParam;
+		if (0 != GetClassName(hWin, winClass, 256)) {
+			if (0 == strcmp(cName, winClass)) {
+				
+				EnumChildWindows(
+					hWin,
+					[](HWND hwnd, LPARAM lParam) -> BOOL {
+						char cName[256];
+
+						if (0 != GetWindowText(hwnd, cName, 256)) {
+							if (0 == strcmp("&Retry", cName)) {
+								SendMessage(hwnd, WM_LBUTTONDOWN, MK_LBUTTON, MAKELPARAM(0, 0));
+								SendMessage(hwnd, WM_LBUTTONUP, MK_LBUTTON, MAKELPARAM(0, 0));
+
+								return FALSE;
+							}
+						}
+
+						return TRUE;
+					},
+					0
+				);
+
+			}
+		}
+		
+	}
+
+	return 0;
+}
+
 int main(int argc, const char *argv[]) {
+	HHOOK wndHook = SetWindowsHookEx(
+		WH_SHELL,
+		AssertWindowMonitor,
+		nullptr,
+		GetCurrentThreadId()
+	);
+
+
 	processStatus.startTime = clock();
 
 

@@ -3,6 +3,8 @@
 
 #include "TinySHA1.h"
 
+#include <utility>
+
 namespace Neutrino {
 	enum class TestState {
 		INVALID = 0,
