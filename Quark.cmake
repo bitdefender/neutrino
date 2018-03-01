@@ -15,3 +15,7 @@ add_executable(quark
 )
 
 target_link_libraries(quark ${quark_libs})
+
+install(TARGETS quark
+    RUNTIME DESTINATION deploy
+)

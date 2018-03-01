@@ -7,3 +7,7 @@ add_library(console.logger.plugin SHARED
     ${plugin_headers}
 )
 
+
+install(TARGETS console.logger.plugin
+    RUNTIME DESTINATION deploy/plugins
+)

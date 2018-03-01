@@ -6,3 +6,8 @@ add_library(file.input.plugin SHARED
     ${file_input_plugin_sources}
     ${plugin_headers}
 )
+
+install(TARGETS file.input.plugin
+    RUNTIME DESTINATION deploy/plugins
+)
+

@@ -13,3 +13,8 @@ add_library(trace.evaluator.plugin SHARED
     ${plugin_headers}
     ${virtual_memory}
 )
+
+install(TARGETS trace.evaluator.plugin
+    RUNTIME DESTINATION deploy/plugins
+)
+

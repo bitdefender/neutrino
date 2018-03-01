@@ -80,3 +80,11 @@ add_executable(neutrino
 )
 
 target_link_libraries(neutrino ${neutrino_libs})
+
+install(TARGETS neutrino
+    RUNTIME DESTINATION deploy
+)
+
+install(FILES neutrino.json
+    DESTINATION deploy
+)
