@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "Neutrino.Types.h"
-#include "Neutrino.Translator.h"
+#include "Neutrino.Abstract.Translator.h"
 #include "Neutrino.Memory.h"
 #include "Neutrino.Result.h"
 #include "Neutrino.Heap.h"
@@ -83,10 +83,10 @@ namespace Neutrino {
 		virtual int GetCoverage() = 0;
 	};
 
-	template <typename STRATEGY>
+	template <typename TRANSLATOR, typename TRAMPOLINE>
 	class Environment : public AbstractEnvironment {
 	private :
-		Translator<STRATEGY> translator;
+		TRANSLATOR translator;
 
 		/* A hash for basic block lookup */
 		BlockHash<0x10000> hash;
@@ -111,14 +111,17 @@ namespace Neutrino {
 		UINTPTR jumpReg;
 		UINTPTR pEntry;
 
-		static void FixDirectJump(Environment *env);
-		static void FixIndirectJump(Environment *env);
+		UINTPTR *translatorCodeMem;
+		//UINTPTR *trampolineCodeMem;
 
-		void FixDirect();
-		void FixIndirect();
+		static UINTPTR FixDirectJump(Environment *env);
+		static UINTPTR FixIndirectJump(Environment *env);
 
-		void InitSolveDirectJump();
-		void InitSolveIndirectJump();
+		UINTPTR FixDirect();
+		UINTPTR FixIndirect();
+
+		void InitSolveDirectJump(BYTE *mem);
+		void InitSolveIndirectJump(BYTE *mem);
 		
 		void Fixup(const CodePatch &dest);
 		bool AllocOutBuffer();

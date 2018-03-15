@@ -14,18 +14,18 @@ namespace Neutrino {
 	private:
 		BYTE *pHeap;
 		HeapZone *pFirstFree;
-		DWORD size;
+		SIZE_T size;
 	public:
-		Heap(DWORD heapSize);
+		Heap(SIZE_T heapSize);
 		~Heap();
 
-		bool Init(DWORD heapSize);
+		bool Init(SIZE_T heapSize);
 		bool Destroy();
 
 		void PrintInfo(HeapZone *fz);
 		void List();
 
-		void *Alloc(DWORD size);
+		void *Alloc(SIZE_T size);
 		void Free(void *ptr);
 	};
 

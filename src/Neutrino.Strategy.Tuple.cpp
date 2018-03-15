@@ -1,11 +1,13 @@
 #include "Neutrino.Strategy.Tuple.h"
 
+#include "Neutrino.Util.h"
+
 namespace Neutrino {
 	WORD TupleStrategy::Hash(UINTPTR x) {
 		x = ((x >> 16) ^ x) * 0x45d9f3b;
 		x = ((x >> 16) ^ x) * 0x45d9f3b;
 		x = (x >> 16) ^ x;
-		return x;
+		return (WORD)x;
 	}
 
 	TupleStrategy::TupleStrategy() {

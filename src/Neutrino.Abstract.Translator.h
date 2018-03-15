@@ -4,6 +4,7 @@
 #include "Neutrino.Types.h"
 
 namespace Neutrino {
+	/* X86 32-bit flags */
 	const DWORD FLAG_EXT = 0x00000001;
 	const DWORD FLAG_O16 = 0x00000020;
 	const DWORD FLAG_A16 = 0x00000040;
@@ -13,6 +14,15 @@ namespace Neutrino {
 	const DWORD FLAG_REPNZ = 0x00000400;
 	const DWORD FLAG_FS = 0x00000800;
 	const DWORD FLAG_GS = 0x00001000;
+
+	/* X86 64-bit flags */
+	const DWORD FLAG_REX = 0x40000000;
+	const DWORD FLAG_64B = 0x00010000;
+	const DWORD FLAG_64X = 0x00020000;
+	const DWORD FLAG_64R = 0x00040000;
+	const DWORD FLAG_64W = 0x00080000;
+
+
 	const DWORD FLAG_JUMP = 0x80000000;
 
 	const DWORD PARSED_OPCODE = 0x00000000;
@@ -22,7 +32,12 @@ namespace Neutrino {
 	const DWORD PATCH_TYPE_DIRECT = 0x00000001;
 	const DWORD PATCH_TYPE_INDIRECT = 0x00000002;
 	const DWORD PATCH_TYPE_JMP_REG_BKP = 0x00000003;
-	
+	const DWORD PATCH_TYPE_TRANSLATOR_SLOT = 0x00000010;
+	//const DWORD PATCH_TYPE_TRANSLATOR_SLOT = 0x00000010;
+
+	const DWORD PATCH_TYPE_DIRECT_64 = 0x00000101;
+	const DWORD PATCH_TYPE_INDIRECT_64 = 0x00000102;
+		
 	const DWORD PATCH_TYPE_LAST_HASH_PTR = 0x00020001;
 	const DWORD PATCH_TYPE_TUPLE_BASE = 0x00020002;
 
@@ -34,6 +49,7 @@ namespace Neutrino {
 	};
 
 	struct TranslationState {
+		BYTE *outStart;
 		DWORD flags;
 		BYTE opCode;
 		BYTE pfxCount;

@@ -14,7 +14,9 @@ namespace Neutrino {
 		DWORD Type; // 0 - free, 1 - allocated
 	};
 
-	Heap::Heap(DWORD heapSize) {
+#define INVALID_HEAP_ZONE ((HeapZone *)-1ll)
+
+	Heap::Heap(SIZE_T heapSize) {
 		pHeap = nullptr;
 		pFirstFree = nullptr;
 		size = 0;
@@ -28,7 +30,7 @@ namespace Neutrino {
 		}
 	}
 
-	bool Heap::Init(DWORD heapSize) {
+	bool Heap::Init(SIZE_T heapSize) {
 		HeapZone *fz;
 		unsigned char *tHeap;
 
@@ -44,10 +46,10 @@ namespace Neutrino {
 
 		fz = (HeapZone *)tHeap;
 
-		fz->Next = (HeapZone *)0xFFFFFFFF;
-		fz->Prev = (HeapZone *)0xFFFFFFFF;
+		fz->Next = INVALID_HEAP_ZONE;
+		fz->Prev = INVALID_HEAP_ZONE;
 		fz->Type = 0;
-		fz->Size = size - sizeof(HeapZone);
+		fz->Size = (DWORD)(size - sizeof(HeapZone));
 
 		pFirstFree = fz;
 		return true;
@@ -66,17 +68,17 @@ namespace Neutrino {
 
 
 	void Heap::PrintInfo(HeapZone *fz) {
-		printf("FirstFree: %08X.\n", (DWORD)pFirstFree);
-		printf("fz  Addr : %08X.\n", (DWORD)fz);
-		printf("fz->Next : %08X.\n", (DWORD)fz->Next);
-		printf("fz->Prev : %08X.\n", (DWORD)fz->Prev);
+		printf("FirstFree: %08IX.\n", (UINTPTR)pFirstFree);
+		printf("fz  Addr : %08IX.\n", (UINTPTR)fz);
+		printf("fz->Next : %08IX.\n", (UINTPTR)fz->Next);
+		printf("fz->Prev : %08IX.\n", (UINTPTR)fz->Prev);
 		printf("fz->Type : %08X.\n", (DWORD)fz->Type);
-		printf("fz->Size : %08X.\n", (DWORD)fz->Size);
+		printf("fz->Size : %08zX.\n", (SIZE_T)fz->Size);
 		printf("\n");
 	}
 
 
-	void *Heap::Alloc(DWORD sz) {
+	void *Heap::Alloc(SIZE_T sz) {
 		BYTE *b;
 		DWORD first;
 		HeapZone *fz, *nfz;
@@ -101,7 +103,7 @@ namespace Neutrino {
 
 					nfz = (HeapZone *)((BYTE *) fz + sizeof(HeapZone) + sz);
 
-					if (fz->Next != (HeapZone *)0xFFFFFFFF)
+					if (fz->Next != INVALID_HEAP_ZONE)
 					{
 						fz->Next->Prev = nfz;
 					}
@@ -109,11 +111,11 @@ namespace Neutrino {
 					nfz->Next = fz->Next;
 					nfz->Prev = fz;
 					nfz->Type = 0;
-					nfz->Size = fz->Size - sz - sizeof(HeapZone);
+					nfz->Size = (DWORD)(fz->Size - sz - sizeof(HeapZone));
 
 					fz->Next = nfz;
 					fz->Type = 1;
-					fz->Size = sz;
+					fz->Size = (DWORD)sz;
 
 					if (first) {
 						pFirstFree = nfz;
@@ -131,7 +133,7 @@ namespace Neutrino {
 
 			fz = (HeapZone *)fz->Next;
 
-		} while (fz != (HeapZone *)0xFFFFFFFF);
+		} while (fz != INVALID_HEAP_ZONE);
 
 		//	SC_Unlock (&dwMMLock);
 
@@ -160,7 +162,7 @@ namespace Neutrino {
 
 			fz = (HeapZone *)fz->Next;
 
-		} while (fz != (HeapZone *)0xFFFFFFFF);
+		} while (fz != INVALID_HEAP_ZONE);
 
 		//	printf("%d bytes of memory are in use.\n", dwMaxSize);
 
@@ -180,7 +182,7 @@ namespace Neutrino {
 
 		wfz = fz->Next;
 
-		if (wfz != (HeapZone *)0xFFFFFFFF) {// present?
+		if (wfz != INVALID_HEAP_ZONE) {// present?
 			if (wfz->Type == 0) {// free?
 				fz->Next = wfz->Next;
 				fz->Size = fz->Size + wfz->Size + sizeof(HeapZone);
@@ -194,7 +196,7 @@ namespace Neutrino {
 
 		wfz = fz->Prev;
 
-		if (wfz != (HeapZone *)0xFFFFFFFF) {// present?
+		if (wfz != INVALID_HEAP_ZONE) {// present?
 			if (wfz->Type == 0) {// free?
 				wfz->Next = fz->Next;
 				wfz->Size = wfz->Size + fz->Size + sizeof(HeapZone);

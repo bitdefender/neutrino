@@ -1,15 +1,10 @@
-#include "Neutrino.Strategy.Trace.h"
+#include "Neutrino.Strategy.Trace.X86.32.h"
+
+#include "Neutrino.Util.h"
 
 namespace Neutrino {
-	TraceStrategy::TraceStrategy() {
-		Reset();
-	}
 
-	void TraceStrategy::Reset()	{
-		out.traceIndex = -1;
-	}
-
-	bool TraceStrategy::TouchStatic(BYTE *&pOut, int &szOut, TranslationState &state, UINTPTR dest) {
+	bool TraceStrategyX8632::TouchStatic(BYTE *&pOut, int &szOut, TranslationState &state, UINTPTR dest) {
 		static const BYTE code[] = {
 			0xA3, 0x00, 0x00, 0x00, 0x00,						// 0x00 - mov [eaxSave], eax
 			0xA1, 0x00, 0x00, 0x00, 0x00,						// 0x05 - mov eax, [traceIndex]
@@ -27,18 +22,18 @@ namespace Neutrino {
 			return false;
 		}
 
-		*(UINTPTR *)&pStart[0x01] = (UINTPTR)&regBackup;
+		*(UINTPTR *)&pStart[0x01] = (UINTPTR)&regEax;
 		*(UINTPTR *)&pStart[0x06] = (UINTPTR)&out.traceIndex;
 		*(UINTPTR *)&pStart[0x0E] = (UINTPTR)&out.traceIndex;
 		*(UINTPTR *)&pStart[0x15] = (UINTPTR)&out.trace;
 		*(UINTPTR *)&pStart[0x1B] = dest;
-		*(UINTPTR *)&pStart[0x20] = (UINTPTR)&regBackup;
+		*(UINTPTR *)&pStart[0x20] = (UINTPTR)&regEax;
 
 
 		return true;
 	}
 
-	bool TraceStrategy::TouchDynamic(BYTE *&pOut, int &szOut, TranslationState &state) {
+	bool TraceStrategyX8632::TouchDynamic(BYTE *&pOut, int &szOut, TranslationState &state) {
 		static const BYTE code[] = {
 			0xA3, 0x00, 0x00, 0x00, 0x00,						// 0x00 - mov [eaxSave], eax
 			0xA1, 0x00, 0x00, 0x00, 0x00,						// 0x05 - mov eax, [traceIndex]
@@ -56,27 +51,13 @@ namespace Neutrino {
 			return false;
 		}
 
-		*(UINTPTR *)&pStart[0x01] = (UINTPTR)&regBackup;
+		*(UINTPTR *)&pStart[0x01] = (UINTPTR)&regEax;
 		*(UINTPTR *)&pStart[0x06] = (UINTPTR)&out.traceIndex;
 		*(UINTPTR *)&pStart[0x0E] = (UINTPTR)&out.traceIndex;
 		*(UINTPTR *)&pStart[0x15] = (UINTPTR)&out.trace;
-		*(UINTPTR *)&pStart[0x1C] = (UINTPTR)&regBackup;
+		*(UINTPTR *)&pStart[0x1C] = (UINTPTR)&regEax;
 
 		return true;
-	}
-
-	void TraceStrategy::TouchDeferred() { }
-
-	AbstractResult *TraceStrategy::GetResult() {
-		return &out;
-	}
-
-	void TraceStrategy::PushBasicBlock(UINTPTR bb) {
-		out.trace[++out.traceIndex] = bb;
-	}
-
-	UINTPTR TraceStrategy::LastBasicBlock() const {
-		return out.trace[out.traceIndex];
 	}
 
 };

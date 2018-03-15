@@ -4,9 +4,6 @@
 #include <string>
 #include <experimental/filesystem> // C++-standard filesystem header file in VS15, VS17.
 namespace fs = std::experimental::filesystem; // experimental for VS15, VS17.
-//bool firstDbgBreak = true;
-
-
 
 int main() {
 	Quark::Debugger dbg("neutrino.exe");
@@ -19,8 +16,16 @@ int main() {
 
 	fs::remove_all(corpusDir);
 	fs::create_directory(corpusDir);
-
 	fs::copy(initialCorpusDir, corpusDir, fs::copy_options::recursive);
+
+	fs::remove_all(outputDir);
+	fs::create_directory(outputDir);
+
+	fs::remove_all(exceptionsDir);
+	fs::create_directory(exceptionsDir);
+
+	fs::remove_all(dumpsDir);
+	fs::create_directory(dumpsDir);
 
 	while (true) {
 		std::string crashTestName;

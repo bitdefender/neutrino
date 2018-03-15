@@ -16,8 +16,16 @@
 #include "Neutrino.Simulation.Trace.h"
 
 #include "Neutrino.Strategy.Trace.h"
+#include "Neutrino.Strategy.Trace.X86.32.h"
+#include "Neutrino.Strategy.Trace.X86.64.h"
+
 #include "Neutrino.Strategy.Tuple.h"
-#include "Neutrino.Translator.h"
+
+#include "Neutrino.Translator.X86.32.h"
+#include "Neutrino.Translator.X86.64.h"
+
+#include "Neutrino.Trampoline.X86.32.h"
+#include "Neutrino.Trampoline.X86.64.h"
 
 #include "Neutrino.Test.h"
 
@@ -228,8 +236,17 @@ Neutrino::AbstractEnvironment *environment;
 Neutrino::SimulationTraceEnvironment traceEnvironment;
 Neutrino::SimulationTupleEnvironment tupleEnvironment;
 #else
-Neutrino::Environment<Neutrino::TraceStrategy> traceEnvironment;
-Neutrino::Environment<Neutrino::TupleStrategy> tupleEnvironment;
+//Neutrino::Environment<Neutrino::Translator<Neutrino::TranslationTableX8632<Neutrino::TraceStrategy> > > traceEnvironment;
+//Neutrino::Environment<Neutrino::Translator<Neutrino::TranslationTableX8632<Neutrino::TupleStrategy> > > tupleEnvironment;
+
+#ifdef _M_X64 
+Neutrino::Environment<Neutrino::Translator<Neutrino::TranslationTableX8664<Neutrino::TraceStrategy<Neutrino::TraceStrategyX8664> > >, Neutrino::TrampolineX8664 > traceEnvironment;
+Neutrino::Environment<Neutrino::Translator<Neutrino::TranslationTableX8664<Neutrino::TupleStrategy> >, Neutrino::TrampolineX8664 > tupleEnvironment;
+#else
+Neutrino::Environment<Neutrino::Translator<Neutrino::TranslationTableX8632<Neutrino::TraceStrategy<Neutrino::TraceStrategyX8632> > >, Neutrino::TrampolineX8632 > traceEnvironment;
+Neutrino::Environment<Neutrino::Translator<Neutrino::TranslationTableX8632<Neutrino::TupleStrategy> >, Neutrino::TrampolineX8632 > tupleEnvironment;
+#endif
+
 #endif
 
 std::vector<Neutrino::InputPlugin *> inputPlugins;
@@ -261,7 +278,7 @@ bool InitializeInputs(const std::string &cfgFile) {
 		}
 	}
 
-	getTestBucket = inputPlugins.size();
+	getTestBucket = (int)inputPlugins.size();
 	testInputQueue = new InputQueue(getTestBucket + 1);
 	dstAdapter = new MutatorDestinationAdapter(*testInputQueue);
 	return true;

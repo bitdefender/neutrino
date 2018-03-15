@@ -2,7 +2,7 @@
 #define _NEUTRINO_STRATEGY_TUPLE_H_
 
 #include "Neutrino.Types.h"
-#include "Neutrino.Translator.h"
+#include "Neutrino.Abstract.Translator.h"
 #include "Neutrino.Result.h"
 
 namespace Neutrino {

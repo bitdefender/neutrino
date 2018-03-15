@@ -19,7 +19,7 @@ namespace Quark {
 	
 	class TestExtractor {
 	private :
-		unsigned int testVirtualAddress;
+		unsigned long long testVirtualAddress;
 
 	public :
 		TestExtractor();

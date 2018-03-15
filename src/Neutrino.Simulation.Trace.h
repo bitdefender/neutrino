@@ -5,7 +5,7 @@
 #include "Neutrino.Result.h"
 
 #include "Neutrino.Environment.h"
-#include "Neutrino.Strategy.Trace.h"
+#include "Neutrino.Strategy.Trace.X86.32.h"
 
 namespace Neutrino {
 

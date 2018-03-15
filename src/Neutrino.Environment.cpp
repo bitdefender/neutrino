@@ -16,7 +16,7 @@ namespace Neutrino {
 		heap.Free(p);
 	}
 
-	unsigned int __cdecl RetAddr_cdecl_2(unsigned int, unsigned char *) {
-		return (unsigned int)GET_RETURN_ADDR(); \
+	UINTPTR __cdecl RetAddr_cdecl_2(unsigned int, unsigned char *) {
+		return (UINTPTR)GET_RETURN_ADDR(); \
 	}
 };

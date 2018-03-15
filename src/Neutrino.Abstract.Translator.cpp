@@ -1,4 +1,4 @@
-#include "Neutrino.Translator.h"
+#include "Neutrino.Abstract.Translator.h"
 
 namespace Neutrino {
 

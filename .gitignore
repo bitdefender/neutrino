@@ -1,4 +1,5 @@
 # CMake dirs
 CMakeFiles/
-vs/
+vs_32/
+vs_64/
 deploy/

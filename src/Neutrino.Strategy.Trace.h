@@ -2,21 +2,21 @@
 #define _NEUTRINO_STRATEGY_TRACE_H_
 
 #include "Neutrino.Types.h"
-#include "Neutrino.Translator.h"
+#include "Neutrino.Abstract.Translator.h"
 #include "Neutrino.Result.h"
 
 namespace Neutrino {
 
 	class TraceOutput : public AbstractResult {
 	public :
-		int traceIndex;
+		UINTPTR traceIndex;
 		UINTPTR trace[1 << 26];
 	};
 
+	template <typename CODEGEN>
 	class TraceStrategy {
-	private:
+	protected:
 		TraceOutput out;
-		UINTPTR regBackup;
 	public:
 		TraceStrategy();
 
@@ -31,5 +31,7 @@ namespace Neutrino {
 		UINTPTR LastBasicBlock() const;
 	};
 };
+
+#include "Neutrino.Strategy.Trace.hpp"
 
 #endif

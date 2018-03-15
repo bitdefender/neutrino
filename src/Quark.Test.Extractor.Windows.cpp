@@ -7,8 +7,8 @@ namespace Quark {
 
 	TestExtractor::TestExtractor() {
 		HMODULE hMod = LoadLibrary("neutrino.exe");
-		DWORD ct = (DWORD)GetProcAddress(hMod, "currentTest");
-		testVirtualAddress = ct - (DWORD)hMod;
+		UINT_PTR ct = (UINT_PTR)GetProcAddress(hMod, "currentTest");
+		testVirtualAddress = ct - (UINT_PTR)hMod;
 		FreeLibrary(hMod);
 	}
 
@@ -20,19 +20,19 @@ namespace Quark {
 			return false;
 		}
 
-		DWORD testAddr, dwRead;
+		SIZE_T testAddr, szRead;
 
-		if (FALSE == ReadProcessMemory(process, (LPCVOID)((DWORD)hMod + testVirtualAddress), &testAddr, sizeof(testAddr), &dwRead)) {
+		if (FALSE == ReadProcessMemory(process, (LPCVOID)((UINT_PTR)hMod + testVirtualAddress), &testAddr, sizeof(testAddr), &szRead)) {
 			return false;
 		}
 
-		if (FALSE == ReadProcessMemory(process, (LPCVOID)testAddr, &test, sizeof(test), &dwRead)) {
+		if (FALSE == ReadProcessMemory(process, (LPCVOID)testAddr, &test, sizeof(test), &szRead)) {
 			return false;
 		}
 
 		unsigned char *buff = new unsigned char[test.size + 1];
 
-		if (FALSE == ReadProcessMemory(process, (LPCVOID)test.buffer, buff, test.size + 1, &dwRead)) {
+		if (FALSE == ReadProcessMemory(process, (LPCVOID)test.buffer, buff, test.size + 1, &szRead)) {
 			return false;
 		}
 

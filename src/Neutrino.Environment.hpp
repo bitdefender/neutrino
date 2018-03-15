@@ -114,18 +114,18 @@ namespace Neutrino {
 		}
 	}
 
-	template <typename STRATEGY>
-	void Environment<STRATEGY>::FixDirectJump(Environment<STRATEGY> *env) {
-		env->FixDirect();
+	template <typename TRANSLATOR, typename TRAMPOLINE>
+	UINTPTR Environment<TRANSLATOR, TRAMPOLINE>::FixDirectJump(Environment<TRANSLATOR, TRAMPOLINE> *env) {
+		return env->FixDirect();
 	}
 
-	template <typename STRATEGY>
-	void Environment<STRATEGY>::FixIndirectJump(Environment<STRATEGY> *env) {
-		env->FixIndirect();
+	template <typename TRANSLATOR, typename TRAMPOLINE>
+	UINTPTR Environment<TRANSLATOR, TRAMPOLINE>::FixIndirectJump(Environment<TRANSLATOR, TRAMPOLINE> *env) {
+		return env->FixIndirect();
 	}
 
-	template <typename STRATEGY>
-	void Environment<STRATEGY>::FixDirect() {
+	template <typename TRANSLATOR, typename TRAMPOLINE>
+	UINTPTR Environment<TRANSLATOR, TRAMPOLINE>::FixDirect() {
 		UINTPTR cAddr = translator.LastBasicBlock();
 		BasicBlock *bb = hash.Find(cAddr);
 
@@ -136,10 +136,12 @@ namespace Neutrino {
 		}
 
 		jumpBuff = (UINTPTR)bb->code;
+		fprintf(stderr, "DIRECT %p => %p\n", cAddr, bb->code);
+		return jumpBuff;
 	}
 
-	template <typename STRATEGY>
-	void Environment<STRATEGY>::FixIndirect() {
+	template <typename TRANSLATOR, typename TRAMPOLINE>
+	UINTPTR Environment<TRANSLATOR, TRAMPOLINE>::FixIndirect() {
 		UINTPTR cAddr = translator.LastBasicBlock();
 		BasicBlock *bb = hash.Find(cAddr);
 
@@ -152,10 +154,12 @@ namespace Neutrino {
 		}
 
 		jumpBuff = (UINTPTR)bb->code;
+		fprintf(stderr, "INDIRECT %p => %p\n", cAddr, bb->code);
+		return jumpBuff;
 	}
 
-	template <typename STRATEGY>
-	bool Environment<STRATEGY>::AllocOutBuffer() {
+	template <typename TRANSLATOR, typename TRAMPOLINE>
+	bool Environment<TRANSLATOR, TRAMPOLINE>::AllocOutBuffer() {
 		lastBuff = codeBuff.Alloc();
 		outBuffer = lastBuff->buffer;
 		outSize = lastBuff->size;
@@ -163,70 +167,44 @@ namespace Neutrino {
 		return true;
 	}
 
-	template <typename STRATEGY>
-	void Environment<STRATEGY>::InitSolveDirectJump() {
-		static const BYTE code[] = {
-			0x87, 0x25, 0x00, 0x00, 0x00, 0x00,			// 0x00 - xchg esp, large ds:<dwVirtualStack>
-			0x9C, 										// 0x06 - pushf
-			0x60,										// 0x07 - pusha
-			0x68, 0x46, 0x02, 0x00, 0x00,				// 0x08 - push 0x00000246 - NEW FLAGS
-			0x9D,										// 0x0D - popf
-			0x68, 0x00, 0x00, 0x00, 0x00,				// 0x0E - push <Environment>
-			0xFF, 0x15, 0x00, 0x00, 0x00, 0x00,			// 0x13 - call <dwBranchHandler>
-			0x83, 0xC4, 0x04,							// 0x19 - sub esp, 4
-			0x61,										// 0x1C - popa
-			0x9D,										// 0x1D - popf
-			0x87, 0x25, 0x00, 0x00, 0x00, 0x00,			// 0x1E - xchg esp, large ds:<dwVirtualStack>
-			0xFF, 0x25, 0x00, 0x00, 0x00, 0x00			// 0x24 - jmp large dword ptr ds:<jumpbuff>	
-		};
-
-		memcpy(outBuffer, code, sizeof(code));
+	template <typename TRANSLATOR, typename TRAMPOLINE>
+	void Environment<TRANSLATOR, TRAMPOLINE>::InitSolveDirectJump(BYTE *mem) {
 		solveDirectJump = (UINTPTR)outBuffer;
 		fixDirectJump = (UINTPTR)FixDirectJump;
 
-		*(UINTPTR *)(&(outBuffer[0x02])) = (UINTPTR)&virtualStack;
-		*(UINTPTR *)(&(outBuffer[0x0F])) = (UINTPTR)this;
-		*(UINTPTR *)(&(outBuffer[0x15])) = (UINTPTR)&fixDirectJump;
-		*(UINTPTR *)(&(outBuffer[0x20])) = (UINTPTR)&virtualStack;
-		*(UINTPTR *)(&(outBuffer[0x26])) = (UINTPTR)&jumpBuff;
+		DWORD codeSize = TRAMPOLINE::MakeTrampoline(
+			outBuffer, 
+			(UINTPTR)&virtualStack,
+			(UINTPTR)&jumpBuff,
+			(UINTPTR)this,
+			(UINTPTR)&fixDirectJump,
+			(UINTPTR)mem
+		);
 
-		outBuffer += sizeof(code);
-		outSize -= sizeof(code);
+		outBuffer += codeSize;
+		outSize -= codeSize;
 	}
 
-	template <typename STRATEGY>
-	void Environment<STRATEGY>::InitSolveIndirectJump() {
-		static const BYTE code[] = {
-			0x87, 0x25, 0x00, 0x00, 0x00, 0x00,			// 0x00 - xchg esp, large ds:<dwVirtualStack>
-			0x9C, 										// 0x06 - pushf
-			0x60,										// 0x07 - pusha
-			0x68, 0x46, 0x02, 0x00, 0x00,				// 0x08 - push 0x00000246 - NEW FLAGS
-			0x9D,										// 0x0D - popf
-			0x68, 0x00, 0x00, 0x00, 0x00,				// 0x0E - push <Environment>
-			0xFF, 0x15, 0x00, 0x00, 0x00, 0x00,			// 0x13 - call <dwBranchHandler>
-			0x83, 0xC4, 0x04,							// 0x19 - sub esp, 4
-			0x61,										// 0x1C - popa
-			0x9D,										// 0x1D - popf
-			0x87, 0x25, 0x00, 0x00, 0x00, 0x00,			// 0x1E - xchg esp, large ds:<dwVirtualStack>
-			0xFF, 0x25, 0x00, 0x00, 0x00, 0x00			// 0x24 - jmp large dword ptr ds:<jumpbuff>	
-		};
-
-		memcpy(outBuffer, code, sizeof(code));
+	template <typename TRANSLATOR, typename TRAMPOLINE>
+	void Environment<TRANSLATOR, TRAMPOLINE>::InitSolveIndirectJump(BYTE *mem) {
 		solveIndirectJump = (UINTPTR)outBuffer;
 		fixIndirectJump = (UINTPTR)FixIndirectJump;
 
-		*(UINTPTR *)(&(outBuffer[0x02])) = (UINTPTR)&virtualStack;
-		*(UINTPTR *)(&(outBuffer[0x0F])) = (UINTPTR)this;
-		*(UINTPTR *)(&(outBuffer[0x15])) = (UINTPTR)&fixIndirectJump;
-		*(UINTPTR *)(&(outBuffer[0x20])) = (UINTPTR)&virtualStack;
-		*(UINTPTR *)(&(outBuffer[0x26])) = (UINTPTR)&jumpBuff;
+		DWORD codeSize = TRAMPOLINE::MakeTrampoline(
+			outBuffer,
+			(UINTPTR)&virtualStack,
+			(UINTPTR)&jumpBuff,
+			(UINTPTR)this,
+			(UINTPTR)&fixIndirectJump,
+			(UINTPTR)mem
+		);
 
-		outBuffer += sizeof(code);
-		outSize -= sizeof(code);
+		outBuffer += codeSize;
+		outSize -= codeSize;
 	}
 
-	template <typename STRATEGY>
-	void Environment<STRATEGY>::InitExec(UINTPTR entry) {
+	template <typename TRANSLATOR, typename TRAMPOLINE>
+	void Environment<TRANSLATOR, TRAMPOLINE>::InitExec(UINTPTR entry) {
 		static const BYTE code[] = {
 			0xE9, 0x00, 0x00, 0x00, 0x00
 		};
@@ -243,8 +221,8 @@ namespace Neutrino {
 	}
 
 
-	template <typename STRATEGY>
-	void Environment<STRATEGY>::Fixup(const CodePatch &dest) {
+	template <typename TRANSLATOR, typename TRAMPOLINE>
+	void Environment<TRANSLATOR, TRAMPOLINE>::Fixup(const CodePatch &dest) {
 		BasicBlock *bb;
 
 		switch (dest.jumpType) {
@@ -256,29 +234,56 @@ namespace Neutrino {
 			*dest.patch = (UINTPTR)&bb->code;
 			break;
 
+		case PATCH_TYPE_DIRECT_64:
+			bb = hash.Find(dest.destination);
+			*(DWORD *)dest.patch = (DWORD)((UINTPTR)&bb->code - ((UINTPTR)dest.patch + 4));
+			break;
+
 		case PATCH_TYPE_INDIRECT:
-			*dest.patch = solveIndirectJump - ((UINTPTR)dest.patch + sizeof(UINTPTR));
+			*dest.patch = solveIndirectJump - ((UINTPTR)dest.patch + 4);
+			break;
+
+		case PATCH_TYPE_INDIRECT_64:
+			*(DWORD *)dest.patch = (DWORD)((UINTPTR)solveIndirectJump - ((UINTPTR)dest.patch + 4));
 			break;
 
 		case PATCH_TYPE_JMP_REG_BKP:
 			*dest.patch = (UINTPTR)&jumpReg;
 			break;
+
+		case PATCH_TYPE_TRANSLATOR_SLOT:
+			*dest.patch = (UINTPTR)&translatorCodeMem[dest.destination];
+			break;
 		}
 	}
 
-	template <typename STRATEGY>
-	Environment<STRATEGY>::Environment() {
+	template <typename TRANSLATOR, typename TRAMPOLINE>
+	Environment<TRANSLATOR, TRAMPOLINE>::Environment() {
 		AllocOutBuffer();
 
-		InitSolveDirectJump();
-		InitSolveIndirectJump();
+		DWORD trampolineMemSz = TRAMPOLINE::GetCodeMemSize(); 
+		BYTE *trampolineMem = outBuffer;
+		outBuffer += trampolineMemSz;
+		outSize -= trampolineMemSz;
 
-		virtualStack = (UINTPTR)(stackBuffer + sizeof(stackBuffer) - 4);
+		DWORD translatorMemSz = TRANSLATOR::GetCodeMemSize();
+		translatorCodeMem = (UINTPTR *)outBuffer;
+		outBuffer += translatorMemSz;
+		outSize -= translatorMemSz;
+
+		*(UINTPTR *)outBuffer = 0x9090909090909090ULL;
+		outBuffer += 8;
+		outSize -= 8;
+		
+		InitSolveDirectJump(trampolineMem);
+		InitSolveIndirectJump(trampolineMem);
+
+		virtualStack = (UINTPTR)(stackBuffer + sizeof(stackBuffer) - sizeof(UINTPTR));
 		coverage = 0;
 	}
 
-	template <typename STRATEGY>
-	BYTE *Environment<STRATEGY>::Translate(UINTPTR addr) {
+	template <typename TRANSLATOR, typename TRAMPOLINE>
+	BYTE *Environment<TRANSLATOR, TRAMPOLINE>::Translate(UINTPTR addr) {
 		TranslationState state;
 
 		coverage++;
@@ -302,12 +307,12 @@ namespace Neutrino {
 		return rRet;
 	}
 
-	typedef DWORD(*TFunc)(unsigned int, unsigned char *);
+	typedef UINTPTR(*TFunc)(unsigned int, unsigned char *);
 
-	unsigned int __cdecl RetAddr_cdecl_2(unsigned int, unsigned char *);
+	UINTPTR __cdecl RetAddr_cdecl_2(unsigned int, unsigned char *);
 
-	template <typename STRATEGY>
-	void Environment<STRATEGY>::Go(unsigned int size, unsigned char *buffer) {
+	template <typename TRANSLATOR, typename TRAMPOLINE>
+	void Environment<TRANSLATOR, TRAMPOLINE>::Go(unsigned int size, unsigned char *buffer) {
 
 		BasicBlock *bbInit = hash.Find(pEntry);
 
@@ -320,7 +325,7 @@ namespace Neutrino {
 		};
 
 		for (int i = 0; i < 2; ++i) {
-			DWORD ret = (funcPtr[i])(size, buffer);
+			UINTPTR ret = (funcPtr[i])(size, buffer);
 
 			if (0 == i) {
 				BasicBlock *bbFin = hash.Find(ret);
@@ -330,13 +335,13 @@ namespace Neutrino {
 		}
 	}
 
-	template<typename STRATEGY>
-	inline AbstractResult *Environment<STRATEGY>::GetResult() {
+	template<typename TRANSLATOR, typename TRAMPOLINE>
+	inline AbstractResult *Environment<TRANSLATOR, TRAMPOLINE>::GetResult() {
 		return translator.GetResult();
 	}
 
-	template<typename STRATEGY>
-	inline int Environment<STRATEGY>::GetCoverage() {
+	template<typename TRANSLATOR, typename TRAMPOLINE>
+	inline int Environment<TRANSLATOR, TRAMPOLINE>::GetCoverage() {
 		return coverage;
 	}
 };
