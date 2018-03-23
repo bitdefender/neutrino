@@ -68,6 +68,8 @@ set(neutrino_sources
 	src/Neutrino.Trampoline.X86.32.cpp
 	src/Neutrino.Trampoline.X86.64.cpp
 
+	src/Neutrino.Translator.X86.64.cpp
+
 	# src/Neutrino.Translator.X86.cpp
 	src/Neutrino.Environment.cpp
 	src/Neutrino.Plugin.Manager.cpp
@@ -91,19 +93,9 @@ set(platform_sources
     src/Neutrino.Memory.${platform_src_suffix}.cpp
 )
 
-set(payload_sources
-	src/http_parser.c
-	src/http_parser.h
-	src/Payload.cpp
-	src/Buffers.cpp
-	src/Payload.h
-	src/Buffers.h
-)
-
 add_executable(neutrino 
 	${neutrino_sources}
 	${platform_sources}
-#	${payload_sources}
 	${neutrino_headers}
 )
 

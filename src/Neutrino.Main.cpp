@@ -40,8 +40,8 @@
 #include "Neutrino.Mutator.Plugin.h"
 #include "Neutrino.Logger.Plugin.h"
 
-#include "Payload.h"
-#include "Buffers.h"
+//#include "Payload.h"
+//#include "Buffers.h"
 
 #define MAX_CFG_SIZE (1 << 20)
 
@@ -452,6 +452,8 @@ bool InitializeLoggers(const std::string &cfgFile) {
 	return true;
 }
 
+Neutrino::AbstractResult *result = nullptr;
+
 bool InitializeEvaluator(const std::string &cfgFile) {
 	if (config.find("evaluator") == config.end()) {
 		printf("No evaluator plugin specified in %s\n", cfgFile.c_str());
@@ -497,6 +499,8 @@ bool InitializeEvaluator(const std::string &cfgFile) {
 		printf("Unsupported evaluator input type\n");
 		return false;
 	}
+
+	result = environment->GetResult();
 
 	return true;
 }

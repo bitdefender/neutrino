@@ -5,6 +5,10 @@
 
 namespace Neutrino {
 	template<int count> inline bool CopyBytes(const BYTE *&bIn, BYTE *&bOut, int &szOut) {
+		if (szOut < 0) {
+			__debugbreak();
+		}
+
 		if (count >= szOut) {
 			__debugbreak();
 			return false;

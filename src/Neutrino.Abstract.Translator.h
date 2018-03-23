@@ -48,17 +48,37 @@ namespace Neutrino {
 		UINTPTR *patch;
 	};
 
+	struct TranslationState;
+	typedef void (*CodePfxFunc)(BYTE *&pOut, int &szOut, TranslationState &state);
+	typedef void (*CodeSfxFunc)(BYTE *&pOut, int &szOut, TranslationState &state);
+
 	struct TranslationState {
-		BYTE *outStart;
+		//BYTE *outStart;
 		DWORD flags;
 		BYTE opCode;
+		BYTE subOpcode;
 		BYTE pfxCount;
 
+		QWORD ripJumpDest;
+		DWORD pfxFuncCount;
+		DWORD sfxFuncCount;
+		CodePfxFunc codePfx[4];
+		CodeSfxFunc codeSfx[4];
+
+		DWORD patchCount; 
 		CodePatch patch[16];
-		DWORD patchCount;
+		
 
 		TranslationState();
+
+		void Init();
+
 		void Patch(DWORD jump, UINTPTR dest, UINTPTR *addr);
+		void AddPrefix(CodePfxFunc pfx);
+		void AddSuffix(CodeSfxFunc sfx);
+
+		void WritePrefix(BYTE *&pOut, int &szOut);
+		void WriteSuffix(BYTE *&pOut, int &szOut);
 	};
 
 	class AbstractTranslator {

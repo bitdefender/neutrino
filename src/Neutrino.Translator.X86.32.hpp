@@ -187,10 +187,6 @@ namespace Neutrino {
 		return 0;
 	}
 
-	template<typename STRATEGY>
-	void TranslationTableX8632<STRATEGY>::SetCodeMem(BYTE *ptr) {
-	}
-
 	template <typename STRATEGY>
 	int TranslationTableX8632<STRATEGY>::OpcodeCallModRM(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state) {
 		static const BYTE codePfx[] = {

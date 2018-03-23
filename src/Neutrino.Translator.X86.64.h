@@ -21,8 +21,7 @@ namespace Neutrino {
 		using STRATEGY::GetResult;
 
 		static DWORD GetCodeMemSize();
-		void SetCodeMem(BYTE *ptr);
-
+		
 		/* Opcodes */
 		template <BYTE destSize>
 		int OpcodeJmp(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state);
@@ -39,9 +38,13 @@ namespace Neutrino {
 		int OpcodeRet(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state);
 		int OpcodeRetn(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state);
 
+		int OpcodeSyscall(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state);
+
 		/* Operands */
 		template <BYTE extOverride>
 		void OperandModRm(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state);
+
+		void OperandImm163264(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state);
 
 		/* Constructor */
 		TranslationTableX8664(TranslationTableX86Base base);

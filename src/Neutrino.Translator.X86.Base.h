@@ -38,9 +38,7 @@ namespace Neutrino {
 
 		template <OpcodeFunc *funcs>
 		int OpcodeExt(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state) {
-			BYTE ext = (pIn[1] >> 3) & 0x07;
-
-			return (this->*funcs[ext])(pIn, pOut, szOut, state);
+			return (this->*funcs[state.subOpcode])(pIn, pOut, szOut, state);
 		}
 
 		/* Operands */
@@ -62,9 +60,7 @@ namespace Neutrino {
 
 		template <OperandFunc *funcs>
 		void OperandExt(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state) {
-			BYTE ext = (pIn[0] >> 3) & 0x07;
-
-			(this->*funcs[ext])(pIn, pOut, szOut, state);
+			(this->*funcs[state.subOpcode])(pIn, pOut, szOut, state);
 		}
 
 		/* Constructors */
