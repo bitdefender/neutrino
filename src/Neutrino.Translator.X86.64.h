@@ -12,7 +12,6 @@ namespace Neutrino {
 
 	private:
 		static OpcodeFunc opcode0xFF[8];
-
 	public:
 		using STRATEGY::TouchDeferred;
 		using STRATEGY::PushBasicBlock;
@@ -41,6 +40,9 @@ namespace Neutrino {
 		int OpcodeSyscall(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state);
 
 		/* Operands */
+		template <BYTE extOverride>
+		void OperandModRmRip(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state);
+
 		template <BYTE extOverride>
 		void OperandModRm(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state);
 

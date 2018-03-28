@@ -4,6 +4,7 @@
 
 namespace Neutrino {
 
+	DWORD GetRegUsage(const TranslationState &state);
 
 	template<typename STRATEGY>
 	DWORD TranslationTableX8664<STRATEGY>::GetCodeMemSize() {
@@ -342,13 +343,62 @@ namespace Neutrino {
 		return PARSED_OPCODE;
 	}
 
-	void ModRMPfxRax(BYTE *&pOut, int &szOut, TranslationState &state);
-	void ModRMPfxRcx(BYTE *&pOut, int &szOut, TranslationState &state);
+	DWORD BinLog2(DWORD x);
 
-	void ModRMSfxRax(BYTE *&pOut, int &szOut, TranslationState &state);
-	void ModRMSfxRcx(BYTE *&pOut, int &szOut, TranslationState &state);
+	extern CodePfxFunc ModRMPfx[];
+	extern CodePfxFunc ModRMSfx[];
 
+	template<typename STRATEGY>
+	template<BYTE extOverride>
+	inline void TranslationTableX8664<STRATEGY>::OperandModRmRip(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state) {
+		BYTE modRM = pIn[0];
+		BYTE mod = modRM & 0xC0;
+		BYTE ext = (modRM >> 3) & 0x07;
 
+		if (0x80 & extOverride) {
+			ext = extOverride & 0x07;
+		}
+
+		BYTE rm = modRM & 0x07;
+
+		DWORD offset = *(DWORD *)(&pIn[1]);
+
+		/* Move the input cursor to the next instruction */
+		pIn += 5;
+
+		state.ripJumpDest = (QWORD)((INT)offset);
+
+		DWORD regs = GetRegUsage(state);
+
+		WORD inputRegs = regs & 0xFFFF;
+		WORD outputRegs = regs >> 16;
+
+		WORD extReg = 1 << (ext + ((state.flags & FLAG_64R) ? 8 : 0));
+		inputRegs |= extReg;
+		outputRegs |= extReg;
+
+		WORD overWrittenRegs = (outputRegs) & (inputRegs ^ 0xFFFF);
+		WORD unusedRegs = 0xFFFF ^ (inputRegs | outputRegs);
+
+		WORD regSet = overWrittenRegs ? overWrittenRegs : unusedRegs;
+
+		WORD tmpReg = regSet ^ (regSet & (regSet - 1));
+		DWORD tmpRegPos = BinLog2(tmpReg);
+
+		if (tmpRegPos >= 8) {
+			__debugbreak();
+		}
+
+		pOut[0] = mod | (ext << 3) | tmpRegPos;
+		state.AddPrefix(ModRMPfx[tmpRegPos]);
+
+		if (0 == (overWrittenRegs & tmpReg)) {
+			state.AddSuffix(ModRMSfx[tmpRegPos]);
+		}
+
+		pOut++;
+		szOut--;
+	}
 
 	template <typename STRATEGY>
 	template <BYTE extOverride>
@@ -357,36 +407,7 @@ namespace Neutrino {
 		BYTE mod = modRM & 0xC0;
 
 		if ((mod == 0) && (5 == (modRM & 0x7))) {
-			BYTE ext = (modRM >> 3) & 0x07;
-
-			if (0x80 & extOverride) {
-				ext = extOverride & 0x07;
-			}
-
-			BYTE rm = modRM & 0x07;
-
-			DWORD offset = *(DWORD *)(&pIn[1]);
-
-			/* Move the input cursor to the next instruction */
-			pIn += 5;
-
-			state.ripJumpDest = (QWORD)((INT)offset);
-
-			/* Determine the if EXT register is RAX */
-			bool usingRAX = (ext == 0) && (0 == (state.flags & FLAG_64R));
-
-			if (usingRAX) {
-				pOut[0] = mod | (ext << 3) | 0x01;
-				state.AddPrefix(ModRMPfxRcx);
-				state.AddSuffix(ModRMSfxRcx);
-			} else {
-				pOut[0] = mod | (ext << 3) | 0x00;
-				state.AddPrefix(ModRMPfxRax);
-				state.AddSuffix(ModRMSfxRax);
-			}
-			pOut++;
-			szOut--;
-
+			OperandModRmRip<extOverride>(pIn, pOut, szOut, state);
 			return;
 		}
 

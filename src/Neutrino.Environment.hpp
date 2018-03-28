@@ -136,7 +136,7 @@ namespace Neutrino {
 		}
 
 		jumpBuff = (UINTPTR)bb->code;
-		//fprintf(stderr, "DIRECT %p => %p\n", (void *)cAddr, bb->code);
+		//fprintf(stderr, "DIRECT   %p => %p\n", (void *)cAddr, bb->code);
 		return jumpBuff;
 	}
 
