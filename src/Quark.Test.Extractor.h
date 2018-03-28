@@ -8,7 +8,7 @@
 #endif // _BUILD_WINDOWS
 
 #ifdef _BUILD_LINUX
-// include whatever
+#include <sys/ptrace.h>
 #endif // _BUILD_LINUX
 
 namespace Quark {
@@ -16,6 +16,10 @@ namespace Quark {
 #ifdef _BUILD_WINDOWS
 	typedef HANDLE process_t;
 #endif // _BUILD_WINDOWS
+
+#ifdef _BUILD_LINUX
+	typedef int process_t;
+#endif
 	
 	class TestExtractor {
 	private :

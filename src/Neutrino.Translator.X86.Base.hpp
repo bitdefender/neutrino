@@ -3,13 +3,9 @@
 #ifndef _NEUTRINO_TRANSLATOR_X86_BASE_HPP_
 #define _NEUTRINO_TRANSLATOR_X86_BASE_HPP_
 
-#include <intrin.h> 
+#include "Neutrino.Bit.Hacks.h"
 
 namespace Neutrino {
-
-	static DWORD PopCount(DWORD x) {
-		return __popcnt(x);
-	}
 
 	static bool ClearPrefixes(const BYTE *&pIn, TranslationState &state) {
 		DWORD pfx = state.flags & (FLAG_O16 | FLAG_A16 | FLAG_LOCK | FLAG_REPZ | FLAG_REPNZ | FLAG_GS | FLAG_FS);

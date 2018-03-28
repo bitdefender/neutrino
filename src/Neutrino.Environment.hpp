@@ -7,7 +7,7 @@
 #define CALLING_CONV(conv) __##conv
 #else
 #define GET_RETURN_ADDR() ({ int addr; asm volatile("mov 4(%%ebp), %0" : "=r" (addr)); addr; })
-#define CALLING_CONV(conv) __attribute__((conv))
+#define CALLING_CONV(conv) __attribute__((__##conv##__))
 #endif
 
 /*#define _RET_ADDR_FUNC_2(conv, paramCount, ...) \
@@ -309,7 +309,8 @@ namespace Neutrino {
 
 	typedef UINTPTR(*TFunc)(unsigned int, unsigned char *);
 
-	UINTPTR __cdecl RetAddr_cdecl_2(unsigned int, unsigned char *);
+	//UINTPTR __cdecl RetAddr_cdecl_2(unsigned int, unsigned char *);
+	UINTPTR __attribute__((__cdecl__)) RetAddr_cdecl_2(unsigned int, unsigned char *);
 
 	template <typename TRANSLATOR, typename TRAMPOLINE>
 	void Environment<TRANSLATOR, TRAMPOLINE>::Go(unsigned int size, unsigned char *buffer) {

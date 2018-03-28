@@ -342,7 +342,7 @@ namespace Neutrino {
 #define OPCODE_NULL &TranslationTableX86Base::OpcodeNull
 #define OPCODE_ERROR &TranslationTableX86Base::OpcodeErr
 #define OPCODE_DEFAULT &TranslationTableX86Base::OpcodeDefault
-#define OPCODE_EXT(s) &TranslationTableX86Base::OpcodeExt<(s)>
+#define OPCODE_EXT(s) &TranslationTableX86Base::OpcodeExt< s >
 #define OPCODE_JMP(idx) (TranslationTableX86Base::OpcodeFunc) &TranslationTableX8632<STRATEGY>::OpcodeJmp<(idx)>
 #define OPCODE_JXX(idx) (TranslationTableX86Base::OpcodeFunc) &TranslationTableX8632<STRATEGY>::OpcodeJxx<(idx)>
 #define OPCODE_CALL (TranslationTableX86Base::OpcodeFunc) &TranslationTableX8632<STRATEGY>::OpcodeCall

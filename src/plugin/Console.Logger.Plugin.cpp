@@ -3,12 +3,28 @@
 
 #include <cstdio>
 
-#include <io.h>
 #include <fcntl.h>
 
+#ifdef _BUILD_WINDOWS
+#include <io.h>
+
+#define FILENO _fileno
+#define DUP _dup
+#define FDOPEN _fdopen
+
+#endif
+
+#ifdef _BUILD_LINUX
+#include <unistd.h>
+
+#define FILENO fileno
+#define DUP dup
+#define FDOPEN fdopen
+
+#endif
 
 extern "C" {
-	__declspec(dllexport) Neutrino::PluginInfo NeutrinoModuleInfo = {
+	PLUGIN_EXTERN Neutrino::PluginInfo NeutrinoModuleInfo = {
 		{ 0, 0, 1 },
 		Neutrino::PluginType::LOGGING,
 		"consolelogger",
@@ -93,8 +109,8 @@ void ConsoleLoggerPlugin::LogStatus(const char *verb, const Neutrino::Status &st
 }
 
 ConsoleLoggerPlugin::ConsoleLoggerPlugin() {
-	int hn = _dup(_fileno(stdout));
-	fOut = _fdopen(hn, "a+");
+	int hn = DUP(FILENO(stdout));
+	fOut = FDOPEN(hn, "a+");
 
 	freopen("output.txt", "wt", stdout);
 }
@@ -127,13 +143,13 @@ bool ConsoleLoggerPlugin::Finish(const Neutrino::Status &status) {
 }
 
 
-extern "C" __declspec(dllexport) Neutrino::LoggerPlugin* GetInstance() {
+extern "C" PLUGIN_EXTERN Neutrino::LoggerPlugin* GetInstance() {
 	return new ConsoleLoggerPlugin();
 }
 
 
 
-#ifdef _MSC_VER
+#ifdef _BUILD_WINDOWS
 #include <Windows.h>
 BOOL WINAPI DllMain(
 	_In_ HINSTANCE hinstDLL,

@@ -197,7 +197,7 @@ namespace Neutrino {
 
 	template <typename STRATEGY>
 	int TranslationTableX8664<STRATEGY>::OpcodeRetn(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state) {
-		__debugbreak();
+		DEBUG_BREAK;
 		
 		static const BYTE codePfx[] = {
 			0x89, 0x1D, 0x00, 0x00, 0x00, 0x00,					// 0x00 - mov [ebxSave], ebx
@@ -304,7 +304,7 @@ namespace Neutrino {
 
 	template <typename STRATEGY>
 	int TranslationTableX8664<STRATEGY>::OpcodeFarJump(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state) {
-		__debugbreak();
+		DEBUG_BREAK;
 		
 		//const RiverInstruction &ri, RelocableCodeBuffer &px86, nodep::DWORD &pFlags, nodep::DWORD &instrCounter) {
 		ClearPrefixes(pIn, state);
@@ -386,7 +386,7 @@ namespace Neutrino {
 		DWORD tmpRegPos = BinLog2(tmpReg);
 
 		if (tmpRegPos >= 8) {
-			__debugbreak();
+			DEBUG_BREAK;
 		}
 
 		pOut[0] = mod | (ext << 3) | tmpRegPos;
@@ -463,7 +463,7 @@ namespace Neutrino {
 #define OPCODE_NULL &TranslationTableX86Base::OpcodeNull
 #define OPCODE_ERROR &TranslationTableX86Base::OpcodeErr
 #define OPCODE_DEFAULT &TranslationTableX86Base::OpcodeDefault
-#define OPCODE_EXT(s) &TranslationTableX86Base::OpcodeExt<(s)>
+#define OPCODE_EXT(s) &TranslationTableX86Base::OpcodeExt< s >
 #define OPCODE_PFX(flag) &TranslationTableX86Base::OpcodePrefix<(flag)>
 #define OPCODE_JMP(idx) (TranslationTableX86Base::OpcodeFunc) &TranslationTableX8664<STRATEGY>::OpcodeJmp<(idx)>
 #define OPCODE_JXX(idx) (TranslationTableX86Base::OpcodeFunc) &TranslationTableX8664<STRATEGY>::OpcodeJxx<(idx)>

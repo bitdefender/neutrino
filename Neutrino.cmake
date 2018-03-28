@@ -3,6 +3,7 @@ set(neutrino_headers
 	src/Neutrino.Util.h
 	src/Neutrino.Enum.Set.h
 	src/Neutrino.Abstract.Translator.h
+	src/Neutrino.Bit.Hacks.h
 
 	src/Neutrino.Translator.X86.Base.h
 	src/Neutrino.Translator.X86.Base.hpp
@@ -14,10 +15,6 @@ set(neutrino_headers
 	src/Neutrino.Trampoline.X86.32.h
 	src/Neutrino.Trampoline.X86.64.h
 
-	# src/Neutrino.Translator.X86.h
-	# src/Neutrino.Translator.X86.hpp
-	# src/Neutrino.Translator.X64.h
-	# src/Neutrino.Translator.X64.hpp
 	src/Neutrino.Environment.h
 	src/Neutrino.Environment.hpp
 	src/Neutrino.Plugin.h
@@ -26,6 +23,8 @@ set(neutrino_headers
 	src/Neutrino.Memory.h
 	src/Neutrino.Heap.h
 	src/Neutrino.Result.h
+
+	src/Neutrino.Loader.h
 
 	src/Neutrino.Strategy.Trace.h
 	src/Neutrino.Strategy.Trace.hpp
@@ -91,6 +90,8 @@ set(neutrino_sources
 set(platform_sources
     src/Neutrino.Module.${platform_src_suffix}.cpp
     src/Neutrino.Memory.${platform_src_suffix}.cpp
+	src/Neutrino.Loader.${platform_src_suffix}.cpp
+	src/Neutrino.Bit.Hacks.${platform_src_suffix}.cpp
 )
 
 add_executable(neutrino 

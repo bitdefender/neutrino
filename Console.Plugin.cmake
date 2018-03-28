@@ -10,4 +10,5 @@ add_library(console.logger.plugin SHARED
 
 install(TARGETS console.logger.plugin
     RUNTIME DESTINATION deploy/plugins
+    LIBRARY DESTINATION deploy/plugins
 )

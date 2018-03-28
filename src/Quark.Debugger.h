@@ -7,11 +7,11 @@
 namespace Quark {
 
 	class Debugger {
-	private :
+	private:
 		class DbgImpl;
 
 		std::unique_ptr<DbgImpl> pImpl;
-	public :
+	public:
 		Debugger(std::string procName);
 		~Debugger();
 		bool Perform(std::string &crashName);

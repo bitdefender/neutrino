@@ -2,6 +2,7 @@
 #define _NEUTRINO_TYEPS_H_
 
 #include <cstdint>
+#include <cstddef>
 
 namespace Neutrino {
 	typedef unsigned char BYTE;

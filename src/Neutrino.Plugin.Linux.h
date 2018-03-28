@@ -1,0 +1,6 @@
+#ifndef _NEUTRINO_PLUGIN_LINUX_H_
+#define _NEUTRINO_PLUGIN_LINUX_H_
+
+#define PLUGIN_EXTERN
+
+#endif

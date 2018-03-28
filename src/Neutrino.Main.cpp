@@ -13,6 +13,8 @@
 #include "Neutrino.Plugin.Manager.h"
 #include "Neutrino.Environment.h"
 
+#include "Neutrino.Loader.h"
+
 #include "Neutrino.Simulation.Trace.h"
 
 #include "Neutrino.Strategy.Trace.h"
@@ -45,11 +47,11 @@
 
 #define MAX_CFG_SIZE (1 << 20)
 
-#ifdef _MSC_VER
+#ifdef _BUILD_WINDOWS
 #include "psapi.h"
 #endif
 
-#ifdef _MSC_VER
+#ifdef _BUILD_WINDOWS
 
 typedef LARGE_INTEGER TIME_T;
 typedef LARGE_INTEGER TIME_FREQ_T;
@@ -63,7 +65,9 @@ typedef double TIME_RES_T;
 	result = 1000.0 * (total) / (freq).QuadPart; }
 #define GET_FREQ(freq) { QueryPerformanceFrequency(&(freq)); }
 
-#else
+#endif
+
+#ifdef _BUILD_LINUX
 
 typedef struct timespec TIME_T;
 typedef double TIME_FREQ_T;
@@ -176,7 +180,9 @@ typedef Neutrino::FairQueue<std::shared_ptr<Neutrino::Test>, 1 << 15> InputQueue
 InputQueue *testInputQueue;
 int getTestBucket = 0;
 
-extern "C" __declspec(dllexport) Neutrino::Test *currentTest = nullptr;
+extern "C" PLUGIN_EXTERN Neutrino::Test *currentTest;
+
+Neutrino::Test *currentTest = nullptr;
 
 class MutatorDestinationAdapter : public Neutrino::TestDestination {
 private :
@@ -545,57 +551,9 @@ bool InitializeMutator(const std::string &cfgFile) {
 	return true;
 }
 
-#define FUZZER_CALL	__cdecl
+Neutrino::Loader loader("./payload/fuzzer.dll");
 
-typedef int(FUZZER_CALL *FnInitEx)();
-typedef	int(FUZZER_CALL *FnUninit)();
-typedef	int(FUZZER_CALL *FnSubmit)(const unsigned int buffSize, const unsigned char *buffer);
-
-
-#include <process.h>
-
-class LibLoader {
-private :
-	HMODULE hMod;
-
-	FnInitEx _init;
-	FnUninit _uninit;
-	FnSubmit _submit;
-
-	int initRet;
-public :
-	LibLoader(const char *libName) {
-		SetErrorMode(SEM_FAILCRITICALERRORS);
-		_set_error_mode(_OUT_TO_STDERR); // disable assert dialog boxes
-		_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_DEBUG);
-		_set_app_type(_crt_console_app);
-
-
-		hMod = LoadLibraryA(libName);
-
-		_init = (FnInitEx)GetProcAddress(hMod, "FuzzerInit");
-		_uninit = (FnUninit)GetProcAddress(hMod, "FuzzerUninit");
-		_submit = (FnSubmit)GetProcAddress(hMod, "FuzzerSubmit");
-
-		initRet = _init();
-	}
-
-	bool IsReady() const {
-		return (0 == initRet);
-	}
-
-	FnSubmit GetEntry() const {
-		return _submit;
-	}
-
-	~LibLoader() {
-		_uninit();
-		FreeLibrary(hMod);
-	}
-};
-
-LibLoader loader("./payload/fuzzer.dll");
-
+#ifdef _BUILD_WINDOWS
 LRESULT CALLBACK AssertWindowMonitor(
 	_In_ int    nCode,
 	_In_ WPARAM wParam,
@@ -638,14 +596,18 @@ LRESULT CALLBACK AssertWindowMonitor(
 
 	return 0;
 }
+#endif
 
 int main(int argc, const char *argv[]) {
+
+#ifdef _BUILD_WINDOWS
 	HHOOK wndHook = SetWindowsHookEx(
 		WH_SHELL,
 		AssertWindowMonitor,
 		nullptr,
 		GetCurrentThreadId()
 	);
+#endif
 
 
 	processStatus.startTime = clock();

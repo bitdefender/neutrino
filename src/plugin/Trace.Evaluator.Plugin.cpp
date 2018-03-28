@@ -9,7 +9,7 @@
 #include <utility>
 
 extern "C" {
-	__declspec(dllexport) Neutrino::PluginInfo NeutrinoModuleInfo = {
+	PLUGIN_EXTERN Neutrino::PluginInfo NeutrinoModuleInfo = {
 		{ 0, 0, 1 },
 		Neutrino::PluginType::EVALUATOR,
 		"traceevaluator",
@@ -89,13 +89,13 @@ public:
 };
 
 
-extern "C" __declspec(dllexport) Neutrino::EvaluatorPlugin* GetInstance() {
+extern "C" PLUGIN_EXTERN Neutrino::EvaluatorPlugin* GetInstance() {
 	return new TraceEvaluatorPlugin();
 }
 
 
 
-#ifdef _MSC_VER
+#ifdef _BUILD_WINDOWS
 #include <Windows.h>
 BOOL WINAPI DllMain(
 	_In_ HINSTANCE hinstDLL,

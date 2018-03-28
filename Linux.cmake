@@ -11,4 +11,6 @@ set(neutrino_libs
     stdc++fs
 )
 
-set(quark_libs)
+set(quark_libs
+    stdc++fs
+)

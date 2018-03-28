@@ -9,4 +9,5 @@ add_library(mutator.plugin SHARED
 
 install(TARGETS mutator.plugin
     RUNTIME DESTINATION deploy/plugins
+    LIBRARY DESTINATION deploy/plugins
 )

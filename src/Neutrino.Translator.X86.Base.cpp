@@ -7,7 +7,7 @@ namespace Neutrino {
 #define OPCODE_DEFAULT &TranslationTableX86Base::OpcodeDefault
 #define OPCODE_OVERRIDE &TranslationTableX86Base::OpcodeOverride
 #define OPCODE_PFX(flag) &TranslationTableX86Base::OpcodePrefix<(flag)>
-#define OPCODE_EXT(s) &TranslationTableX86Base::OpcodeExt<(s)>
+#define OPCODE_EXT(s) &TranslationTableX86Base::OpcodeExt< s >
 
 #define OPERAND_ERROR &TranslationTableX86Base::OperandErr
 #define OPERAND_NONE &TranslationTableX86Base::OperandNone
@@ -17,7 +17,7 @@ namespace Neutrino {
 #define OPERAND_IMM16 &TranslationTableX86Base::OperandImm16
 #define OPERAND_IMM1632 &TranslationTableX86Base::OperandImm1632
 #define OPERAND_AGG(o1, o2) &TranslationTableX86Base::OperandAgg<(o1), (o2)>
-#define OPERAND_EXT(s) &TranslationTableX86Base::OperandExt<(s)>
+#define OPERAND_EXT(s) &TranslationTableX86Base::OperandExt< s >
 
 	void TranslationTableX86Base::InitOpcodes(std::initializer_list<std::initializer_list<OpcodeFunc>> opcodes) {
 		int i = 0;
@@ -64,17 +64,17 @@ namespace Neutrino {
 	/* Opcodes */
 
 	inline int TranslationTableX86Base::OpcodeErr(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state) {
-		__debugbreak();
+		DEBUG_BREAK;
 		return 0;
 	}
 
 	inline int TranslationTableX86Base::OpcodeNull(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state) {
-		__debugbreak();
+		DEBUG_BREAK;
 		return 0;
 	}
 
 	inline int TranslationTableX86Base::OpcodeOverride(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state) {
-		__debugbreak();
+		DEBUG_BREAK;
 		return 0;
 	}
 
@@ -90,11 +90,11 @@ namespace Neutrino {
 	}
 
 	inline void TranslationTableX86Base::OperandNull(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state) {
-		__debugbreak();
+		DEBUG_BREAK;
 	}
 
 	void TranslationTableX86Base::OperandOverride(const BYTE *& pIn, BYTE *& pOut, int & szOut, TranslationState & state) {
-		__debugbreak();
+		DEBUG_BREAK;
 	}
 
 	void TranslationTableX86Base::OperandNone(const BYTE *& pIn, BYTE *& pOut, int & szOut, TranslationState & state) {
@@ -139,7 +139,7 @@ namespace Neutrino {
 		InitOperands(mrm, operands);
 	}
 
-	TranslationTableX86Base::TranslationTableX86Base(TranslationTableX86Base &base, TranslationTableX86Base &over) {
+	TranslationTableX86Base::TranslationTableX86Base(const TranslationTableX86Base &base, const TranslationTableX86Base &over) {
 		modRmFunc = over.modRmFunc;
 		if (&TranslationTableX86Base::OperandNull == modRmFunc) {
 			modRmFunc = base.modRmFunc;

@@ -1,6 +1,7 @@
 #include "Neutrino.Simulation.Trace.h"
 
 #include <cstdlib>
+#include <cstdio>
 
 namespace Neutrino {
 	int SimulationTraceEnvironment::GetSet(int a) {

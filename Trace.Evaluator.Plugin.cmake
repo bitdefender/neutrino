@@ -16,5 +16,6 @@ add_library(trace.evaluator.plugin SHARED
 
 install(TARGETS trace.evaluator.plugin
     RUNTIME DESTINATION deploy/plugins
+    LIBRARY DESTINATION deploy/plugins
 )
 

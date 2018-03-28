@@ -9,7 +9,7 @@
 namespace Quark {
 
 	class Debugger::DbgImpl {
-	private :
+	private:
 		std::string processName;
 		PROCESS_INFORMATION pi;
 		TestExtractor extractor;

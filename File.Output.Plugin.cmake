@@ -9,5 +9,6 @@ add_library(file.output.plugin SHARED
 
 install(TARGETS file.output.plugin
     RUNTIME DESTINATION deploy/plugins
+    LIBRARY DESTINATION deploy/plugins
 )
 

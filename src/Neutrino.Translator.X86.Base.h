@@ -66,7 +66,7 @@ namespace Neutrino {
 		/* Constructors */
 		TranslationTableX86Base();
 		TranslationTableX86Base(OperandFunc mrm, std::initializer_list<std::initializer_list<OpcodeFunc> > opcodes, std::initializer_list<std::initializer_list<OperandFunc> > operands);
-		TranslationTableX86Base(TranslationTableX86Base &base, TranslationTableX86Base &over);
+		TranslationTableX86Base(const TranslationTableX86Base &base, const TranslationTableX86Base &over);
 	};
 
 

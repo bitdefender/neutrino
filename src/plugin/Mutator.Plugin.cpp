@@ -2,7 +2,7 @@
 #include "../Neutrino.Mutator.Plugin.h"
 
 extern "C" {
-	__declspec(dllexport) Neutrino::PluginInfo NeutrinoModuleInfo = {
+	PLUGIN_EXTERN Neutrino::PluginInfo NeutrinoModuleInfo = {
 		{ 0, 0, 1 },
 		Neutrino::PluginType::MUTATOR,
 		"mutator",
@@ -121,13 +121,13 @@ public:
 };
 
 
-extern "C" __declspec(dllexport) Neutrino::MutatorPlugin *GetInstance() {
+extern "C" PLUGIN_EXTERN Neutrino::MutatorPlugin *GetInstance() {
 	return new MutatorPlugin();
 }
 
 
 
-#ifdef _MSC_VER
+#ifdef _BUILD_WINDOWS
 #include <Windows.h>
 BOOL WINAPI DllMain(
 	_In_ HINSTANCE hinstDLL,

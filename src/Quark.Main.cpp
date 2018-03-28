@@ -2,8 +2,11 @@
 #include "Neutrino.Test.h"
 
 #include <string>
+
+//#ifdef _BUILD_WINDOWS
 #include <experimental/filesystem> // C++-standard filesystem header file in VS15, VS17.
 namespace fs = std::experimental::filesystem; // experimental for VS15, VS17.
+//#endif
 
 int main() {
 	Quark::Debugger dbg("neutrino.exe");

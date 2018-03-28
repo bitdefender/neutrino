@@ -3,6 +3,14 @@
 
 #include "json/json.hpp"
 
+#ifdef _BUILD_WINDOWS
+#include "Neutrino.Plugin.Windows.h"
+#endif
+
+#ifdef _BUILD_LINUX
+#include "Neutrino.Plugin.Linux.h"
+#endif
+
 namespace Neutrino {
 	enum class PluginType : unsigned int {
 		UNKNOWN, // Add plugin 

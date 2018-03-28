@@ -12,7 +12,7 @@
 #include <fstream>
 
 extern "C" {
-	__declspec(dllexport) Neutrino::PluginInfo NeutrinoModuleInfo = {
+	PLUGIN_EXTERN Neutrino::PluginInfo NeutrinoModuleInfo = {
 		{ 0, 0, 1 },
 		Neutrino::PluginType::OUTPUT,
 		"fileoutput",
@@ -74,13 +74,13 @@ bool FileOutputPlugin::WriteTest(const Neutrino::Test &cfg) {
 	return true;
 }
 
-extern "C" __declspec(dllexport) Neutrino::OutputPlugin* GetInstance() {
+extern "C" PLUGIN_EXTERN Neutrino::OutputPlugin* GetInstance() {
 	return new FileOutputPlugin();
 }
 
 
 
-#ifdef _MSC_VER
+#ifdef _BUILD_WINDOWS
 #include <Windows.h>
 BOOL WINAPI DllMain(
 	_In_ HINSTANCE hinstDLL,

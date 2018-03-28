@@ -1,6 +1,6 @@
 #if __linux__
 
-#include "../libproc/os-linux.h"
+/*#include "../libproc/os-linux.h"
 
 #include "MemoryLayout.h"
 
@@ -114,7 +114,7 @@ namespace vmem {
 	MemoryLayout *CreateMemoryLayout(process_t process) {
 		return new LinMemoryLayout(process);
 	}
-};
+};*/
 
 
 #endif
