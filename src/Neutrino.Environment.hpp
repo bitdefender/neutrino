@@ -309,8 +309,7 @@ namespace Neutrino {
 
 	typedef UINTPTR(*TFunc)(unsigned int, unsigned char *);
 
-	//UINTPTR __cdecl RetAddr_cdecl_2(unsigned int, unsigned char *);
-	UINTPTR __attribute__((__cdecl__)) RetAddr_cdecl_2(unsigned int, unsigned char *);
+	UINTPTR CALLING_CONV(cdecl) RetAddr_cdecl_2(unsigned int, unsigned char *);
 
 	template <typename TRANSLATOR, typename TRAMPOLINE>
 	void Environment<TRANSLATOR, TRAMPOLINE>::Go(unsigned int size, unsigned char *buffer) {

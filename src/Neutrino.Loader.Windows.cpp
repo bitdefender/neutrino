@@ -1,5 +1,6 @@
 #include "Neutrino.Loader.h"
 
+#include <Windows.h>
 #include <process.h>
 
 namespace Neutrino {
@@ -21,7 +22,7 @@ namespace Neutrino {
             _set_app_type(_crt_console_app);
 
 
-            hMod = LoadLibraryA(libName);
+            hMod = LoadLibraryA(libName.c_str());
 
             _init = (FnInitEx)GetProcAddress(hMod, "FuzzerInit");
             _uninit = (FnUninit)GetProcAddress(hMod, "FuzzerUninit");

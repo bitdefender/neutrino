@@ -107,6 +107,8 @@ bool FileInputPlugin::SetDirs(const nlohmann::json &cfg, const char *key, std::v
 			dirs.push_back(DirectoryMonitor(it.get<std::string>()));
 		}
 	}
+
+	return true;
 }
 
 FileInputPlugin::FileInputPlugin() {
