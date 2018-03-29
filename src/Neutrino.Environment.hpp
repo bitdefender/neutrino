@@ -6,7 +6,8 @@
 #define GET_RETURN_ADDR _ReturnAddress
 #define CALLING_CONV(conv) __##conv
 #else
-#define GET_RETURN_ADDR() ({ int addr; asm volatile("mov 4(%%ebp), %0" : "=r" (addr)); addr; })
+//#define GET_RETURN_ADDR() ({ int addr; asm volatile("mov 4(%%ebp), %0" : "=r" (addr)); addr; })
+#define GET_RETURN_ADDR() __builtin_return_address(0)
 #define CALLING_CONV(conv) __attribute__((__##conv##__))
 #endif
 
@@ -28,6 +29,8 @@ _RET_ADDR_FUNC_(stdcall, 1, void *);
 _RET_ADDR_FUNC_(stdcall, 2, void *, void *);
 _RET_ADDR_FUNC_(stdcall, 3, void *, void *, void *);
 _RET_ADDR_FUNC_(stdcall, 4, void *, void *, void *, void *);*/
+
+#include <cstdio>
 
 namespace Neutrino {
 	template<int SIZE>
@@ -101,7 +104,7 @@ namespace Neutrino {
 	}
 
 	template<typename T>
-	inline T * Allocator<T>::Alloc() {
+	inline T *Allocator<T>::Alloc() {
 		T *ret = new T();
 		allocated.push_back(ret);
 		return ret;

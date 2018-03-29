@@ -551,7 +551,7 @@ bool InitializeMutator(const std::string &cfgFile) {
 	return true;
 }
 
-Neutrino::Loader loader("./payload/fuzzer.dll");
+Neutrino::Loader loader("./payload/fuzzer.so");
 
 #ifdef _BUILD_WINDOWS
 LRESULT CALLBACK AssertWindowMonitor(
