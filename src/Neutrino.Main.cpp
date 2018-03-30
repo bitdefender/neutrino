@@ -69,6 +69,9 @@ typedef double TIME_RES_T;
 
 #ifdef _BUILD_LINUX
 
+#include <sys/time.h>
+#include <sys/resource.h> 
+
 typedef struct timespec TIME_T;
 typedef double TIME_FREQ_T;
 typedef double TIME_RES_T;
@@ -322,13 +325,29 @@ bool UpdateProcessStatus() {
 
 	processStatus.coverage = environment->GetCoverage();
 
-#ifdef _MSC_VER
+#ifdef _BUILD_WINDOWS
 	PROCESS_MEMORY_COUNTERS_EX pmc;
 	GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS *)&pmc, sizeof(pmc));
 	
 	processStatus.vmUsed = pmc.PrivateUsage;
-#else
-	processStatus.vmUsed = 0;
+#endif
+
+
+#ifdef _BUILD_LINUX
+	const char* statm_path = "/proc/self/statm";
+	long pagesUsed;
+
+	FILE *f = fopen(statm_path,"r");
+	if(!f){
+		return true;
+	}
+
+	if(1 != fscanf(f, "%ld", &pagesUsed)) {
+		return true;
+	}
+	fclose(f);
+
+	processStatus.vmUsed = pagesUsed << 12;
 #endif
 
 	return true;
