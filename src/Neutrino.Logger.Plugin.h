@@ -16,6 +16,7 @@ namespace Neutrino {
 			int queued;
 			int traced;
 			int corpus;
+			int lastGood;
 		} tests;
 
 		unsigned long long vmUsed;
