@@ -327,7 +327,7 @@ namespace Neutrino {
 			(TFunc)bbInit->code
 		};
 
-		for (int i = 0; i < 2; ++i) {
+		for (volatile int i = 0; i < 2; ++i) {
 			UINTPTR ret = (funcPtr[i])(size, buffer);
 
 			if (0 == i) {
