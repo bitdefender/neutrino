@@ -399,9 +399,8 @@ bool ExecuteTests() {
 		test->state = Neutrino::TestState::EXECUTED;
 		processStatus.tests.traced++;
 
-		int testsSinceLastGood = processStatus.tests.lastGood - processStatus.tests.traced;
-		testsSinceLastGood >>= 14; // report only after 16384 tests
-		if (0 == (testsSinceLastGood & (testsSinceLastGood - 1))) { // report in increments of pow2
+		int testsSinceLastGood = processStatus.tests.traced - processStatus.tests.lastGood;
+		if ((testsSinceLastGood >= (1 << 14)) && (0 == (testsSinceLastGood & (testsSinceLastGood - 1)))) { // report in increments of pow2
 			Ping();
 		}
 		
