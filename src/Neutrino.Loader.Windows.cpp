@@ -15,24 +15,40 @@ namespace Neutrino {
 
         int initRet;
     public:
-        LoaderImpl(std::string libName) {
-            SetErrorMode(SEM_FAILCRITICALERRORS);
-            _set_error_mode(_OUT_TO_STDERR); // disable assert dialog boxes
-            _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_DEBUG);
-            _set_app_type(_crt_console_app);
+		LoaderImpl(std::string libName) {
+			SetErrorMode(SEM_FAILCRITICALERRORS);
+			_set_error_mode(_OUT_TO_STDERR); // disable assert dialog boxes
+			_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_DEBUG);
+			_set_app_type(_crt_console_app);
 
+			initRet = -1;
 
-            hMod = LoadLibraryA(libName.c_str());
+			UINT oldErrorMode = SetErrorMode(SEM_FAILCRITICALERRORS);
+			SetErrorMode(oldErrorMode | SEM_FAILCRITICALERRORS);
 
-            _init = (FnInitEx)GetProcAddress(hMod, "FuzzerInit");
-            _uninit = (FnUninit)GetProcAddress(hMod, "FuzzerUninit");
-            _submit = (FnSubmit)GetProcAddress(hMod, "FuzzerSubmit");
+			hMod = LoadLibraryA(libName.c_str());
 
-            initRet = _init();
-        }
+			SetErrorMode(oldErrorMode);
+
+			_init = (FnInitEx)GetProcAddress(hMod, "FuzzerInit");
+			_uninit = (FnUninit)GetProcAddress(hMod, "FuzzerUninit");
+			_submit = (FnSubmit)GetProcAddress(hMod, "FuzzerSubmit");
+
+			if ((nullptr == _submit)) {
+				return;
+			}
+
+			if ((nullptr != _init) && (nullptr != _uninit)) {
+				initRet = _init();
+			} else {
+				initRet = 0;
+			}
+		}
 
         ~LoaderImpl() {
-            _uninit();
+			if (_uninit) {
+				_uninit();
+			}
 		    FreeLibrary(hMod);
         }
 

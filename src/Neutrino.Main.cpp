@@ -65,6 +65,8 @@ typedef double TIME_RES_T;
 	result = 1000.0 * (total) / (freq).QuadPart; }
 #define GET_FREQ(freq) { QueryPerformanceFrequency(&(freq)); }
 
+#define PAYLOAD_EXTENSION "dll"
+
 #endif
 
 #ifdef _BUILD_LINUX
@@ -82,6 +84,8 @@ typedef double TIME_RES_T;
 	res += ((endtime).tv_sec - (starttime).tv_sec) + ((endtime).tv_nsec - (starttime).tv_nsec) / freq; }
 #define GET_AGGREGATE_RESULT(total, freq, result) { result = total; }
 #define GET_FREQ(freq) { (freq) = 1E9; }
+
+#define PAYLOAD_EXTENSION "so"
 
 #endif
 
@@ -572,7 +576,8 @@ bool InitializeMutator(const std::string &cfgFile) {
 	return true;
 }
 
-Neutrino::Loader loader("./payload/fuzzer.so");
+volatile bool running = true;
+Neutrino::Loader *loader = nullptr; //("./payload/fuzzer.so");
 
 #ifdef _BUILD_WINDOWS
 LRESULT CALLBACK AssertWindowMonitor(
@@ -617,6 +622,21 @@ LRESULT CALLBACK AssertWindowMonitor(
 
 	return 0;
 }
+
+BOOL WINAPI CtrlCHandler(DWORD dwCtrlType) {
+	if (CTRL_C_EVENT == dwCtrlType) {
+		fprintf(stderr, "Ctrl-C pressed... Shutting down...\n");
+		fflush(stderr);
+		running = false;
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
+void InitWindows() {
+	SetConsoleCtrlHandler(CtrlCHandler, TRUE);
+}
 #endif
 
 int main(int argc, const char *argv[]) {
@@ -628,16 +648,11 @@ int main(int argc, const char *argv[]) {
 		nullptr,
 		GetCurrentThreadId()
 	);
+
+	InitWindows();
 #endif
 
-
 	processStatus.startTime = clock();
-
-
-	if (!loader.IsReady()) {
-		printf("Payload initialization failed!\n");
-		return 0;
-	}
 
 	// Parse the command line
 	ParseCmdLine(argc, argv);
@@ -671,6 +686,12 @@ int main(int argc, const char *argv[]) {
 		return 0;
 	}
 
+	loader = new Neutrino::Loader("./payload/fuzzer." PAYLOAD_EXTENSION);
+	if (!loader->IsReady()) {
+		printf("Payload initialization failed!\n");
+		return 0;
+	}
+
 	// Do some meaningful work
 	if (!InitializeInputs(cfgFile)) {
 		return 0;
@@ -696,10 +717,8 @@ int main(int argc, const char *argv[]) {
 		return 0;
 	}
 
-	int c = 0;
-
-	environment->InitExec((Neutrino::UINTPTR) loader.GetEntry()  /*Payload*/);
-	while (true) {
+	environment->InitExec((Neutrino::UINTPTR) loader->GetEntry()  /*Payload*/);
+	while (running) {
 		ExecuteTests();
 		RunInputs(true);
 		if (!ExecuteMutation()) {
@@ -711,5 +730,6 @@ int main(int argc, const char *argv[]) {
 
 	corpus.Stats();
 
+	delete loader;
 	return 0;
 }

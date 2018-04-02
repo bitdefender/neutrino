@@ -69,7 +69,6 @@ void *Neutrino::PluginManager::GetInst(const char *name) {
 
 	if (plg->state == PluginState::IDENTIFIED) {
 		plg->module = OpenModule(plg->moduleName.c_str());
-		// if (plg->module) not loaded
 
 		plg->getInst = (PluginGetInstanceFunc)FindFunction(plg->module, "GetInstance");
 		if (nullptr == plg->getInst) {
