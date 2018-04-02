@@ -639,6 +639,24 @@ void InitWindows() {
 }
 #endif
 
+#ifdef _BUILD_LINUX
+
+#include<signal.h>
+#include<unistd.h>
+
+void SigHandler (int signo) {
+	if (signo == SIGINT) {
+    	fprintf(stderr, "Ctrl-C pressed... Shutting down...\n");
+		fflush(stderr);
+		running = false;
+	}
+}
+
+void InitLinux() {
+	signal(SIGINT, SigHandler);
+}
+#endif
+
 int main(int argc, const char *argv[]) {
 
 #ifdef _BUILD_WINDOWS
@@ -650,6 +668,10 @@ int main(int argc, const char *argv[]) {
 	);
 
 	InitWindows();
+#endif
+
+#ifdef _BUILD_LINUX
+	InitLinux();
 #endif
 
 	processStatus.startTime = clock();
