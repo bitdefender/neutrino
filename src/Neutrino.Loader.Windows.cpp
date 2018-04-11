@@ -13,9 +13,11 @@ namespace Neutrino {
         FnUninit _uninit;
         FnSubmit _submit;
 
+        FnLibfuzzerSubmit _libfuzzersubmit;
+
         int initRet;
     public:
-		LoaderImpl(std::string libName) {
+		LoaderImpl(std::string libName, bool libFuzzerCompatible) {
 			SetErrorMode(SEM_FAILCRITICALERRORS);
 			_set_error_mode(_OUT_TO_STDERR); // disable assert dialog boxes
 			_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_DEBUG);
@@ -30,18 +32,29 @@ namespace Neutrino {
 
 			SetErrorMode(oldErrorMode);
 
-			_init = (FnInitEx)GetProcAddress(hMod, "FuzzerInit");
-			_uninit = (FnUninit)GetProcAddress(hMod, "FuzzerUninit");
-			_submit = (FnSubmit)GetProcAddress(hMod, "FuzzerSubmit");
+			if (libFuzzerCompatible) {
+				_libfuzzersubmit = (FnLibfuzzerSubmit)GetProcAddress(hMod, "LLVMFuzzerTestOneInput");
 
-			if ((nullptr == _submit)) {
-				return;
-			}
+				if ((nullptr == _libfuzzersubmit)) {
+					return;
+				}
 
-			if ((nullptr != _init) && (nullptr != _uninit)) {
-				initRet = _init();
-			} else {
 				initRet = 0;
+			} else {
+				_init = (FnInitEx)GetProcAddress(hMod, "FuzzerInit");
+				_uninit = (FnUninit)GetProcAddress(hMod, "FuzzerUninit");
+				_submit = (FnSubmit)GetProcAddress(hMod, "FuzzerSubmit");
+
+				if ((nullptr == _submit)) {
+					return;
+				}
+
+				if ((nullptr != _init) && (nullptr != _uninit)) {
+					initRet = _init();
+				}
+				else {
+					initRet = 0;
+				}
 			}
 		}
 
@@ -59,9 +72,13 @@ namespace Neutrino {
         FnSubmit GetEntry() const {
             return _submit;
         }
+
+		FnLibfuzzerSubmit GetLibfuzzerEntry() const {
+			return _libfuzzersubmit;
+		}
     };
 
-    Loader::Loader(std::string libName) : pImpl(new Loader::LoaderImpl(libName)) { }
+    Loader::Loader(std::string libName, bool libFuzzerCompatible) : pImpl(new Loader::LoaderImpl(libName, libFuzzerCompatible)) { }
     Loader::~Loader() {}
 
     bool Loader::IsReady() const {
@@ -71,5 +88,9 @@ namespace Neutrino {
     FnSubmit Loader::GetEntry() const {
         return pImpl->GetEntry();
     }
+
+	FnLibfuzzerSubmit Loader::GetLibfuzzerEntry() const {
+		return pImpl->GetLibfuzzerEntry();
+	}
 
 };

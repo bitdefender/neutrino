@@ -686,7 +686,13 @@ int main(int argc, const char *argv[]) {
 		return 0;
 	}
 
-	loader = new Neutrino::Loader("./payload/fuzzer." PAYLOAD_EXTENSION);
+	bool isLibfuzzerCompatible = false;
+	if ((config.find("libfuzzer") != config.end()) && (config["libfuzzer"].is_boolean())) {
+		isLibfuzzerCompatible = config["libfuzzer"].get<bool>();
+	}
+
+	loader = new Neutrino::Loader("./payload/fuzzer." PAYLOAD_EXTENSION, isLibfuzzerCompatible);
+	
 	if (!loader->IsReady()) {
 		printf("Payload initialization failed!\n");
 		return 0;

@@ -18,17 +18,20 @@ namespace Neutrino {
     typedef	int(FUZZER_CALL *FnUninit)();
     typedef	int(FUZZER_CALL *FnSubmit)(const unsigned int buffSize, const unsigned char *buffer);
 
+	typedef int(*FnLibfuzzerSubmit)(const uint8_t data, size_t size);
+
     class Loader {
     private:
         class LoaderImpl;
 
         std::unique_ptr<LoaderImpl> pImpl;
     public:
-        Loader(std::string libName);
+        Loader(std::string libName, bool libFuzzerCompatible);
     	~Loader();
 
         bool IsReady() const;
 	    FnSubmit GetEntry() const;
+		FnLibfuzzerSubmit GetLibfuzzerEntry() const;
     };
 
 };

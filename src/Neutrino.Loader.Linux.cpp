@@ -12,16 +12,36 @@ namespace Neutrino {
         FnUninit _uninit;
         FnSubmit _submit;
 
+        FnLibfuzzerSubmit _libfuzzersubmit;
+
         int initRet;
     public:
-        LoaderImpl(std::string libName) {
+        LoaderImpl(std::string libName, bool libFuzzerCompatible) {
             hMod = dlopen(libName.c_str(), RTLD_LAZY);
 
-            _init = (FnInitEx)dlsym(hMod, "FuzzerInit");
-            _uninit = (FnUninit)dlsym(hMod, "FuzzerUninit");
-            _submit = (FnSubmit)dlsym(hMod, "FuzzerSubmit");
+            if (libFuzzerCompatible) {
+                _libfuzzersubmit = (FnLibfuzzerSubmit)GetProcAddress(hMod, "LLVMFuzzerTestOneInput");
+                if ((nullptr == _libfuzzersubmit)) {
+                    return;
+                }
 
-            initRet = _init();
+		initRet = 0;
+            } else {
+
+                _init = (FnInitEx)dlsym(hMod, "FuzzerInit");
+                _uninit = (FnUninit)dlsym(hMod, "FuzzerUninit");
+                _submit = (FnSubmit)dlsym(hMod, "FuzzerSubmit");
+
+                if ((nullptr == _submit)) {
+                    return;
+                }
+
+                if ((nullptr != _init) && (nullptr != _uninit)) {
+                    initRet = _init();
+                } else {
+                    initRet = 0;
+                }
+            }
         }
 
         ~LoaderImpl() {
@@ -38,7 +58,7 @@ namespace Neutrino {
         }
     };
 
-    Loader::Loader(std::string libName) : pImpl(new Loader::LoaderImpl(libName)) { }
+    Loader::Loader(std::string libName, bool libFuzzerCompatible) : pImpl(new Loader::LoaderImpl(libName, libFuzzerCompatible)) { }
     Loader::~Loader() {}
 
     bool Loader::IsReady() const {
