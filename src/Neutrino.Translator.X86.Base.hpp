@@ -15,7 +15,7 @@ namespace Neutrino {
 
 	template <typename TABLE>
 	void Translator<TABLE>::Translate(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state) {
-		BYTE *outStart = pOut;
+		BYTE *outStart = state.outStart = pOut;
 				
 		state.Init();
 

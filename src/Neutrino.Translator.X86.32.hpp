@@ -191,24 +191,41 @@ namespace Neutrino {
 	int TranslationTableX8632<STRATEGY>::OpcodeCallModRM(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state) {
 		static const BYTE codePfx[] = {
 			0x68, 0x00, 0x00, 0x00, 0x00,					// 0x00 - push imm32
-			0x89, 0x1D, 0x00, 0x00, 0x00, 0x00,				// 0x05 - mov [ebxSave], ebx
-			0x8B,											// 0x0B - mov ebx, [<---->]
+			0x89, 0x1D, 0x00, 0x00, 0x00, 0x00				// 0x05 - mov [ebxSave], ebx
 		};
+
+		static const BYTE targetCode[] = {
+			0x8B											// 0x00 - mov ebx, [<---->]
+		};
+
+		BYTE prefixes[16];		
+		int pfxCnt = pOut - state.outStart;
+		memcpy(prefixes, state.outStart, pfxCnt);
+		pOut -= pfxCnt;
+		szOut -= pfxCnt;
+
 
 		const BYTE *pCode = codePfx;
 		BYTE *pStart = pOut;
 
 		CopyBytes<sizeof(codePfx)>(pCode, pOut, szOut);
-		pIn += 1; szOut -= 1;
-		OperandModRm(pIn, pOut, szOut, state);
-
-		*(UINTPTR *)&pStart[1] = (UINTPTR)pIn;
-
 		state.Patch(PATCH_TYPE_JMP_REG_BKP, 0, (UINTPTR *)&pStart[0x07]);
 
-		pStart[0x0C] &= 0xC7; // clear ext
-		pStart[0x0C] |= 0x18; // set ext to EBX
+		memcpy(pOut, prefixes, pfxCnt);
+		pOut += pfxCnt;
+		szOut += pfxCnt;
 
+		pCode = targetCode;
+		BYTE *pCont = pOut;
+		CopyBytes<sizeof(targetCode)>(pCode, pOut, szOut);
+
+		pIn += 1;
+		OperandModRm(pIn, pOut, szOut, state);
+
+		pCont[0x01] &= 0xC7; // clear ext
+		pCont[0x01] |= 0x18; // set ext to EBX
+		*(UINTPTR *)&pStart[1] = (UINTPTR)pIn; // put the correct return address on the stack
+		
 		TouchDynamic(pOut, szOut, state);
 
 		static const BYTE codeSfx[] = {
@@ -217,7 +234,7 @@ namespace Neutrino {
 		};
 
 		pCode = codeSfx;
-		BYTE *pCont = pOut;
+		pCont = pOut;
 		CopyBytes<sizeof(codeSfx)>(pCode, pOut, szOut);
 
 		state.Patch(PATCH_TYPE_JMP_REG_BKP, 0, (UINTPTR *)&pCont[0x02]);
@@ -303,6 +320,25 @@ namespace Neutrino {
 		return PARSED_OPCODE;
 	}
 
+	template<typename STRATEGY> 
+	int TranslationTableX8632<STRATEGY>::OpcodeSyscall(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state) {
+		CopyBytes<1>(pIn, pOut, szOut);
+
+		//DEBUG_BREAK;
+
+		/*static const BYTE codeSfx[] = {
+			0x48, 0xB9, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00	// 0x00 - mov rcx, nexinstr
+		};
+
+		const BYTE *pCode = codeSfx;
+		BYTE *pStart = pOut;
+		CopyBytes<sizeof(codeSfx)>(pCode, pOut, szOut);
+
+		*(QWORD *)(&pStart[0x02]) = (UINTPTR)pIn;*/
+
+		return PARSED_OPCODE;
+	}
+
 	template <typename STRATEGY>
 	void TranslationTableX8632<STRATEGY>::OperandModRm(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state) {
 		BYTE modRM = pIn[0];
@@ -351,6 +387,7 @@ namespace Neutrino {
 #define OPCODE_CALLMODRM (TranslationTableX86Base::OpcodeFunc) &TranslationTableX8632<STRATEGY>::OpcodeCallModRM
 #define OPCODE_JMPMODRM (TranslationTableX86Base::OpcodeFunc) &TranslationTableX8632<STRATEGY>::OpcodeJumpModRM
 #define OPCODE_FARJMP (TranslationTableX86Base::OpcodeFunc) &TranslationTableX8632<STRATEGY>::OpcodeFarJump
+#define OPCODE_SYSCALL (TranslationTableX86Base::OpcodeFunc) &TranslationTableX8632<STRATEGY>::OpcodeSyscall
 
 #define OPERAND_NULL &TranslationTableX86Base::OperandNull
 
@@ -369,7 +406,7 @@ namespace Neutrino {
 	template<typename STRATEGY>
 	inline TranslationTableX8632<STRATEGY>::TranslationTableX8632(TranslationTableX86Base base) :
 		TranslationTableX86Base(
-			tableX86Base,
+			GetTableX86Base(),
 			TranslationTableX86Base(
 				(TranslationTableX86Base::OperandFunc)&TranslationTableX8632::OperandModRm,
 				{
@@ -470,7 +507,7 @@ namespace Neutrino {
 						/* 0x2C */ OPCODE_NULL, OPCODE_NULL, OPCODE_NULL, OPCODE_NULL,
 
 						/* 0x30 */ OPCODE_NULL, OPCODE_NULL, OPCODE_NULL, OPCODE_NULL,
-						/* 0x34 */ OPCODE_NULL, OPCODE_NULL, OPCODE_NULL, OPCODE_NULL,
+						/* 0x34 */ OPCODE_SYSCALL, OPCODE_NULL, OPCODE_NULL, OPCODE_NULL,
 						/* 0x38 */ OPCODE_NULL, OPCODE_NULL, OPCODE_NULL, OPCODE_NULL,
 						/* 0x3C */ OPCODE_NULL, OPCODE_NULL, OPCODE_NULL, OPCODE_NULL,
 
@@ -535,7 +572,13 @@ namespace Neutrino {
 						/* 0xFC */ OPCODE_NULL, OPCODE_NULL, OPCODE_NULL, OPCODE_NULL
 					}
 				},
-				{ {}, {} }
+				{ 
+					{
+						
+					}, {
+
+					} 
+				}
 			)
 		)
 	{ }
@@ -553,6 +596,7 @@ namespace Neutrino {
 #undef OPCODE_CALLMODRM
 #undef OPCODE_JMPMODRM
 #undef OPCODE_FARJMP
+#undef OPCODE_SYSCALL
 
 #undef OPERAND_NULL
 

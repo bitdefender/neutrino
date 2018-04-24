@@ -12,8 +12,6 @@ namespace Neutrino {
         FnUninit _uninit;
         FnSubmit _submit;
 
-        FnLibfuzzerSubmit _libfuzzersubmit;
-
         int initRet;
     public:
         LoaderImpl(std::string libName, bool libFuzzerCompatible) {
@@ -25,8 +23,8 @@ namespace Neutrino {
             }
 
             if (libFuzzerCompatible) {
-                _libfuzzersubmit = (FnLibfuzzerSubmit)dlsym(hMod, "LLVMFuzzerTestOneInput");
-                if ((nullptr == _libfuzzersubmit)) {
+                _submit = (FnSubmit)dlsym(hMod, "LLVMFuzzerTestOneInput");
+                if ((nullptr == _submit)) {
                     return;
                 }
 
@@ -61,10 +59,6 @@ namespace Neutrino {
         FnSubmit GetEntry() const {
             return _submit;
         }
-
-        FnLibfuzzerSubmit GetLibfuzzerEntry() const {
-			return _libfuzzersubmit;
-		}
     };
 
     Loader::Loader(std::string libName, bool libFuzzerCompatible) : pImpl(new Loader::LoaderImpl(libName, libFuzzerCompatible)) { }
@@ -77,9 +71,5 @@ namespace Neutrino {
     FnSubmit Loader::GetEntry() const {
         return pImpl->GetEntry();
     }
-
-	FnLibfuzzerSubmit Loader::GetLibfuzzerEntry() const {
-		return pImpl->GetLibfuzzerEntry();
-	}
 
 };

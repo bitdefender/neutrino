@@ -227,7 +227,8 @@ namespace Neutrino {
 		return PARSED_OPCODE;
 	}
 
-	template<typename STRATEGY> int TranslationTableX8664<STRATEGY>::OpcodeSyscall(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state) {
+	template<typename STRATEGY> 
+	int TranslationTableX8664<STRATEGY>::OpcodeSyscall(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state) {
 		CopyBytes<1>(pIn, pOut, szOut);
 
 		static const BYTE codeSfx[] = {
@@ -496,7 +497,7 @@ namespace Neutrino {
 	template<typename STRATEGY>
 	inline TranslationTableX8664<STRATEGY>::TranslationTableX8664(TranslationTableX86Base base) :
 		TranslationTableX86Base(
-			tableX86Base,
+			GetTableX86Base(),
 			TranslationTableX86Base(
 			(TranslationTableX86Base::OperandFunc)&TranslationTableX8664::OperandModRm<0>,
 			{

@@ -32,6 +32,8 @@ _RET_ADDR_FUNC_(stdcall, 4, void *, void *, void *, void *);*/
 
 #include <cstdio>
 
+#include "Neutrino.Util.h"
+
 namespace Neutrino {
 	template<int SIZE>
 	Heap BlockHash<SIZE>::List::heap(1 << 20);
@@ -117,18 +119,20 @@ namespace Neutrino {
 		}
 	}
 
-	template <typename TRANSLATOR, typename TRAMPOLINE>
-	UINTPTR Environment<TRANSLATOR, TRAMPOLINE>::FixDirectJump(Environment<TRANSLATOR, TRAMPOLINE> *env) {
+	template <typename TRANSLATOR, typename TRAMPOLINE, typename OS>
+	UINTPTR Environment<TRANSLATOR, TRAMPOLINE, OS>::FixDirectJump(Environment<TRANSLATOR, TRAMPOLINE, OS> *env) {
 		return env->FixDirect();
 	}
 
-	template <typename TRANSLATOR, typename TRAMPOLINE>
-	UINTPTR Environment<TRANSLATOR, TRAMPOLINE>::FixIndirectJump(Environment<TRANSLATOR, TRAMPOLINE> *env) {
+	template <typename TRANSLATOR, typename TRAMPOLINE, typename OS>
+	UINTPTR Environment<TRANSLATOR, TRAMPOLINE, OS>::FixIndirectJump(Environment<TRANSLATOR, TRAMPOLINE, OS> *env) {
 		return env->FixIndirect();
 	}
 
-	template <typename TRANSLATOR, typename TRAMPOLINE>
-	UINTPTR Environment<TRANSLATOR, TRAMPOLINE>::FixDirect() {
+	//static bool alwaysBreak = false;
+
+	template <typename TRANSLATOR, typename TRAMPOLINE, typename OS>
+	UINTPTR Environment<TRANSLATOR, TRAMPOLINE, OS>::FixDirect() {
 		UINTPTR cAddr = translator.LastBasicBlock();
 		BasicBlock *bb = hash.Find(cAddr);
 
@@ -143,8 +147,8 @@ namespace Neutrino {
 		return jumpBuff;
 	}
 
-	template <typename TRANSLATOR, typename TRAMPOLINE>
-	UINTPTR Environment<TRANSLATOR, TRAMPOLINE>::FixIndirect() {
+	template <typename TRANSLATOR, typename TRAMPOLINE, typename OS>
+	UINTPTR Environment<TRANSLATOR, TRAMPOLINE, OS>::FixIndirect() {
 		UINTPTR cAddr = translator.LastBasicBlock();
 		BasicBlock *bb = hash.Find(cAddr);
 
@@ -161,8 +165,8 @@ namespace Neutrino {
 		return jumpBuff;
 	}
 
-	template <typename TRANSLATOR, typename TRAMPOLINE>
-	bool Environment<TRANSLATOR, TRAMPOLINE>::AllocOutBuffer() {
+	template <typename TRANSLATOR, typename TRAMPOLINE, typename OS>
+	bool Environment<TRANSLATOR, TRAMPOLINE, OS>::AllocOutBuffer() {
 		lastBuff = codeBuff.Alloc();
 		outBuffer = lastBuff->buffer;
 		outSize = lastBuff->size;
@@ -170,8 +174,8 @@ namespace Neutrino {
 		return true;
 	}
 
-	template <typename TRANSLATOR, typename TRAMPOLINE>
-	void Environment<TRANSLATOR, TRAMPOLINE>::InitSolveDirectJump(BYTE *mem) {
+	template <typename TRANSLATOR, typename TRAMPOLINE, typename OS>
+	void Environment<TRANSLATOR, TRAMPOLINE, OS>::InitSolveDirectJump(BYTE *mem) {
 		solveDirectJump = (UINTPTR)outBuffer;
 		fixDirectJump = (UINTPTR)FixDirectJump;
 
@@ -188,8 +192,8 @@ namespace Neutrino {
 		outSize -= codeSize;
 	}
 
-	template <typename TRANSLATOR, typename TRAMPOLINE>
-	void Environment<TRANSLATOR, TRAMPOLINE>::InitSolveIndirectJump(BYTE *mem) {
+	template <typename TRANSLATOR, typename TRAMPOLINE, typename OS>
+	void Environment<TRANSLATOR, TRAMPOLINE, OS>::InitSolveIndirectJump(BYTE *mem) {
 		solveIndirectJump = (UINTPTR)outBuffer;
 		fixIndirectJump = (UINTPTR)FixIndirectJump;
 
@@ -206,8 +210,23 @@ namespace Neutrino {
 		outSize -= codeSize;
 	}
 
-	template <typename TRANSLATOR, typename TRAMPOLINE>
-	void Environment<TRANSLATOR, TRAMPOLINE>::InitExec(UINTPTR entry) {
+	template <typename TRANSLATOR, typename TRAMPOLINE, typename OS>
+	void Environment<TRANSLATOR, TRAMPOLINE, OS>::InitExec(UINTPTR entry) {
+		TranslationState state;
+		std::vector<std::pair<UINTPTR, UINTPTR> > ret;
+		OS::MakeSystem(outBuffer, outSize, state, (AbstractTranslator &)translator, ret);
+		
+		for (unsigned int i = 0; i < state.patchCount; ++i) {
+			Fixup(state.patch[i]);
+		}
+		
+		for (auto itr : ret) {
+			BasicBlock *bb = hash.Find(itr.first);
+
+			bb->code = (BYTE *)itr.second;
+			bb->translated = true;
+		}
+
 		static const BYTE code[] = {
 			0xE9, 0x00, 0x00, 0x00, 0x00
 		};
@@ -224,8 +243,8 @@ namespace Neutrino {
 	}
 
 
-	template <typename TRANSLATOR, typename TRAMPOLINE>
-	void Environment<TRANSLATOR, TRAMPOLINE>::Fixup(const CodePatch &dest) {
+	template <typename TRANSLATOR, typename TRAMPOLINE, typename OS>
+	void Environment<TRANSLATOR, TRAMPOLINE, OS>::Fixup(const CodePatch &dest) {
 		BasicBlock *bb;
 
 		switch (dest.jumpType) {
@@ -260,8 +279,8 @@ namespace Neutrino {
 		}
 	}
 
-	template <typename TRANSLATOR, typename TRAMPOLINE>
-	Environment<TRANSLATOR, TRAMPOLINE>::Environment() {
+	template <typename TRANSLATOR, typename TRAMPOLINE, typename OS>
+	Environment<TRANSLATOR, TRAMPOLINE, OS>::Environment() {
 		AllocOutBuffer();
 
 		DWORD trampolineMemSz = TRAMPOLINE::GetCodeMemSize(); 
@@ -285,8 +304,8 @@ namespace Neutrino {
 		coverage = 0;
 	}
 
-	template <typename TRANSLATOR, typename TRAMPOLINE>
-	BYTE *Environment<TRANSLATOR, TRAMPOLINE>::Translate(UINTPTR addr) {
+	template <typename TRANSLATOR, typename TRAMPOLINE, typename OS>
+	BYTE *Environment<TRANSLATOR, TRAMPOLINE, OS>::Translate(UINTPTR addr) {
 		TranslationState state;
 
 		coverage++;
@@ -310,12 +329,12 @@ namespace Neutrino {
 		return rRet;
 	}
 
-	typedef UINTPTR(*TFunc)(unsigned int, unsigned char *);
+	typedef UINTPTR(*TFunc)(unsigned char *, unsigned int);
 
-	UINTPTR CALLING_CONV(cdecl) RetAddr_cdecl_2(unsigned int, unsigned char *);
+	UINTPTR CALLING_CONV(cdecl) RetAddr_cdecl_2(unsigned char *, unsigned int);
 
-	template <typename TRANSLATOR, typename TRAMPOLINE>
-	void Environment<TRANSLATOR, TRAMPOLINE>::Go(unsigned int size, unsigned char *buffer) {
+	template <typename TRANSLATOR, typename TRAMPOLINE, typename OS>
+	void Environment<TRANSLATOR, TRAMPOLINE, OS>::Go(unsigned char *buffer, unsigned int size) {
 
 		BasicBlock *bbInit = hash.Find(pEntry);
 
@@ -328,7 +347,7 @@ namespace Neutrino {
 		};
 
 		for (volatile int i = 0; i < 2; ++i) {
-			UINTPTR ret = (funcPtr[i])(size, buffer);
+			UINTPTR ret = (funcPtr[i])(buffer, size);
 
 			if (0 == i) {
 				BasicBlock *bbFin = hash.Find(ret);
@@ -338,13 +357,13 @@ namespace Neutrino {
 		}
 	}
 
-	template<typename TRANSLATOR, typename TRAMPOLINE>
-	inline AbstractResult *Environment<TRANSLATOR, TRAMPOLINE>::GetResult() {
+	template<typename TRANSLATOR, typename TRAMPOLINE, typename OS>
+	inline AbstractResult *Environment<TRANSLATOR, TRAMPOLINE, OS>::GetResult() {
 		return translator.GetResult();
 	}
 
-	template<typename TRANSLATOR, typename TRAMPOLINE>
-	inline int Environment<TRANSLATOR, TRAMPOLINE>::GetCoverage() {
+	template<typename TRANSLATOR, typename TRAMPOLINE, typename OS>
+	inline int Environment<TRANSLATOR, TRAMPOLINE, OS>::GetCoverage() {
 		return coverage;
 	}
 };

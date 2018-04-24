@@ -29,6 +29,8 @@
 #include "Neutrino.Trampoline.X86.32.h"
 #include "Neutrino.Trampoline.X86.64.h"
 
+#include "Neutrino.System.h"
+
 #include "Neutrino.Test.h"
 
 #include "Neutrino.Fair.Queue.h"
@@ -249,15 +251,13 @@ Neutrino::AbstractEnvironment *environment;
 Neutrino::SimulationTraceEnvironment traceEnvironment;
 Neutrino::SimulationTupleEnvironment tupleEnvironment;
 #else
-//Neutrino::Environment<Neutrino::Translator<Neutrino::TranslationTableX8632<Neutrino::TraceStrategy> > > traceEnvironment;
-//Neutrino::Environment<Neutrino::Translator<Neutrino::TranslationTableX8632<Neutrino::TupleStrategy> > > tupleEnvironment;
 
 #ifdef _M_X64 
-Neutrino::Environment<Neutrino::Translator<Neutrino::TranslationTableX8664<Neutrino::TraceStrategy<Neutrino::TraceStrategyX8664> > >, Neutrino::TrampolineX8664 > traceEnvironment;
-Neutrino::Environment<Neutrino::Translator<Neutrino::TranslationTableX8664<Neutrino::TupleStrategy> >, Neutrino::TrampolineX8664 > tupleEnvironment;
+	extern Neutrino::Environment<Neutrino::Translator<Neutrino::TranslationTableX8664<Neutrino::TraceStrategy<Neutrino::TraceStrategyX8664> > >, Neutrino::TrampolineX8664, Neutrino::System > traceEnvironment;
+	extern Neutrino::Environment<Neutrino::Translator<Neutrino::TranslationTableX8664<Neutrino::TupleStrategy> >, Neutrino::TrampolineX8664, Neutrino::System > tupleEnvironment;
 #else
-Neutrino::Environment<Neutrino::Translator<Neutrino::TranslationTableX8632<Neutrino::TraceStrategy<Neutrino::TraceStrategyX8632> > >, Neutrino::TrampolineX8632 > traceEnvironment;
-Neutrino::Environment<Neutrino::Translator<Neutrino::TranslationTableX8632<Neutrino::TupleStrategy> >, Neutrino::TrampolineX8632 > tupleEnvironment;
+	extern Neutrino::Environment<Neutrino::Translator<Neutrino::TranslationTableX8632<Neutrino::TraceStrategy<Neutrino::TraceStrategyX8632> > >, Neutrino::TrampolineX8632, Neutrino::System > traceEnvironment;
+	extern Neutrino::Environment<Neutrino::Translator<Neutrino::TranslationTableX8632<Neutrino::TupleStrategy> >, Neutrino::TrampolineX8632, Neutrino::System > tupleEnvironment;
 #endif
 
 #endif
@@ -397,7 +397,7 @@ bool ExecuteTests() {
 		processStatus.tests.queued--;
 
 		currentTest = test.get();
-		environment->Go(test->size, test->buffer);
+		environment->Go(test->buffer, test->size);
 		currentTest = nullptr;
 
 		test->state = Neutrino::TestState::EXECUTED;
@@ -744,6 +744,8 @@ int main(int argc, const char *argv[]) {
 	if (!InitializeMutator(cfgFile)) {
 		return 0;
 	}
+
+	//environment->InitExec((Neutrino::UINTPTR) loader->GetEntry());
 
 	environment->InitExec((Neutrino::UINTPTR) loader->GetEntry()  /*Payload*/);
 	while (running) {

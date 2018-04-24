@@ -70,7 +70,8 @@ namespace Neutrino {
 	};
 
 
-	extern TranslationTableX86Base tableX86Base;
+	//extern TranslationTableX86Base tableX86Base;
+	const TranslationTableX86Base &GetTableX86Base();
 
 	template <typename TABLE>
 	class Translator {

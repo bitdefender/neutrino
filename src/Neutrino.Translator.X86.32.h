@@ -39,6 +39,8 @@ namespace Neutrino {
 		int OpcodeRet(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state);
 		int OpcodeRetn(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state);
 
+		int OpcodeSyscall(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state);		
+
 		/* Operands */
 		void OperandModRm(const BYTE *&pIn, BYTE *&pOut, int &szOut, TranslationState &state);
 

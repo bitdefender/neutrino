@@ -53,7 +53,7 @@ namespace Neutrino {
 	typedef void (*CodeSfxFunc)(BYTE *&pOut, int &szOut, TranslationState &state);
 
 	struct TranslationState {
-		//BYTE *outStart;
+		BYTE *outStart;
 		DWORD flags;
 		BYTE opCode;
 		BYTE subOpcode;

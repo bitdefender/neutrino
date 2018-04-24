@@ -78,12 +78,12 @@ namespace Neutrino {
 	class AbstractEnvironment {
 	public :
 		virtual void InitExec(UINTPTR entry) = 0;
-		virtual void Go(unsigned int size, unsigned char *buffer) = 0;
+		virtual void Go(unsigned char *buffer,unsigned int size) = 0;
 		virtual AbstractResult *GetResult() = 0;
 		virtual int GetCoverage() = 0;
 	};
 
-	template <typename TRANSLATOR, typename TRAMPOLINE>
+	template <typename TRANSLATOR, typename TRAMPOLINE, typename OS>
 	class Environment : public AbstractEnvironment {
 	private :
 		TRANSLATOR translator;
@@ -131,7 +131,7 @@ namespace Neutrino {
 		Environment();
 		BYTE *Translate(UINTPTR addr);
 		
-		virtual void Go(unsigned int size, unsigned char *buffer);
+		virtual void Go(unsigned char *buffer, unsigned int size);
 		virtual AbstractResult *GetResult();
 		virtual int GetCoverage();
 	};
