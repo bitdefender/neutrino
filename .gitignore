@@ -3,3 +3,13 @@ CMakeFiles/
 vs_32/
 vs_64/
 deploy/
+
+# Payloads
+http_parser/
+
+# Windows files
+*.exe
+*.ilk
+*.pdb
+*.obj
+.vs/

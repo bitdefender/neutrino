@@ -89,8 +89,8 @@ set(neutrino_sources
 )
 
 set(platform_sources
-    src/Neutrino.Module.${platform_src_suffix}.cpp
-    src/Neutrino.Memory.${platform_src_suffix}.cpp
+	src/Neutrino.Module.${platform_src_suffix}.cpp
+	src/Neutrino.Memory.${platform_src_suffix}.cpp
 	src/Neutrino.Loader.${platform_src_suffix}.cpp
 	src/Neutrino.Bit.Hacks.${platform_src_suffix}.cpp
 	src/Neutrino.System.${platform_src_suffix}.cpp
@@ -105,9 +105,9 @@ add_executable(neutrino
 target_link_libraries(neutrino ${neutrino_libs})
 
 install(TARGETS neutrino
-    RUNTIME DESTINATION deploy
+	RUNTIME DESTINATION deploy
 )
 
 install(FILES neutrino.json
-    DESTINATION deploy
+	DESTINATION deploy
 )
