@@ -398,7 +398,9 @@ bool ExecuteTests() {
 		processStatus.tests.queued--;
 
 		currentTest = test.get();
-		environment->Go(test->buffer, test->size);
+		for (int i = 0; i < 1000; ++i) {
+			environment->Go(test->buffer, test->size);
+		}
 		currentTest = nullptr;
 
 		test->state = Neutrino::TestState::EXECUTED;
@@ -662,6 +664,10 @@ void InitLinux() {
 }
 #endif
 
+int Empty(const unsigned int buffSize, const unsigned char *buffer) {
+	return 0;
+}
+
 int main(int argc, const char *argv[]) {
 
 #ifdef _BUILD_WINDOWS
@@ -760,7 +766,8 @@ int main(int argc, const char *argv[]) {
 		startTime = std::chrono::system_clock::now();
 	}
 
-	environment->InitExec((Neutrino::UINTPTR) loader->GetEntry());
+	//environment->InitExec((Neutrino::UINTPTR) loader->GetEntry());
+	environment->InitExec((Neutrino::UINTPTR) Empty);
 	while (running) {
 		ExecuteTests();
 		if (tracingBenchmark) {
