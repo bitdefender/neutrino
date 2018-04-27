@@ -3,8 +3,8 @@
 #include <ctime>
 
 #include <vector>
-
 #include <memory>
+#include <chrono>
 
 #include "ezOptionParser/ezOptionParser.h"
 #include "json/json.hpp"
@@ -267,6 +267,7 @@ std::vector<Neutrino::OutputPlugin *> outputPlugins;
 std::vector<Neutrino::LoggerPlugin *> loggerPlugins;
 Neutrino::EvaluatorPlugin *evaluatorPlugin = nullptr;
 Neutrino::MutatorPlugin *mutatorPlugin = nullptr;
+bool tracingBenchmark = false;
 
 bool InitializeInputs(const std::string &cfgFile) {
 	if (config.find("inputs") == config.end()) {
@@ -405,7 +406,9 @@ bool ExecuteTests() {
 
 		int testsSinceLastGood = processStatus.tests.traced - processStatus.tests.lastGood;
 		if ((testsSinceLastGood >= (1 << 14)) && (0 == (testsSinceLastGood & (testsSinceLastGood - 1)))) { // report in increments of pow2
-			Ping();
+			if (!tracingBenchmark) {
+				Ping();
+			}
 		}
 		
 		double ret = evaluatorPlugin->Evaluate(*test, environment->GetResult());
@@ -414,8 +417,10 @@ bool ExecuteTests() {
 			test->state = Neutrino::TestState::EVALUATED;
 			processStatus.tests.lastGood = processStatus.tests.traced;
 			processStatus.tests.corpus++;
-			Output(*test);
-			Log(*test);
+			if (!tracingBenchmark) {
+				Output(*test);
+				Log(*test);
+			}
 		} else {
 			//test->state = Neutrino::TestState::DISCARDED;
 		}
@@ -713,6 +718,10 @@ int main(int argc, const char *argv[]) {
 		isLibfuzzerCompatible = config["libfuzzer"].get<bool>();
 	}
 
+	if ((config.find("tracing_benchmark") != config.end()) && (config["tracing_benchmark"].is_boolean())) {
+		tracingBenchmark = config["tracing_benchmark"].get<bool>();
+	}
+
 	loader = new Neutrino::Loader("./payload/fuzzer." PAYLOAD_EXTENSION, isLibfuzzerCompatible);
 	
 	if (!loader->IsReady()) {
@@ -745,11 +754,23 @@ int main(int argc, const char *argv[]) {
 		return 0;
 	}
 
-	//environment->InitExec((Neutrino::UINTPTR) loader->GetEntry());
 
-	environment->InitExec((Neutrino::UINTPTR) loader->GetEntry()  /*Payload*/);
+	std::chrono::time_point<std::chrono::system_clock> startTime;
+	if (tracingBenchmark) {
+		startTime = std::chrono::system_clock::now();
+	}
+
+	environment->InitExec((Neutrino::UINTPTR) loader->GetEntry());
 	while (running) {
 		ExecuteTests();
+		if (tracingBenchmark) {
+			auto stopTime = std::chrono::system_clock::now();
+			std::chrono::milliseconds diff = std::chrono::duration_cast<std::chrono::milliseconds>(stopTime - startTime);
+
+			fprintf(stderr, "Tracing benchmark: %lldms\n", diff.count());
+			break;
+		}
+
 		RunInputs(true);
 		if (!ExecuteMutation()) {
 			break;

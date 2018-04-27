@@ -38,6 +38,8 @@ namespace Neutrino {
 
 		std::shared_ptr<Test> FindTest(const sha1::Digest &name) const;
 
+		void Optimize();
+
 		void Stats() const;
 	};
 

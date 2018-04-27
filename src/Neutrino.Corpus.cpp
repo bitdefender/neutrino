@@ -29,8 +29,6 @@ namespace Neutrino {
 			ret->state = state;
 			corpus[ret->name] = ret;
 
-			//int mumu = corpus.bucket_count();
-
 			return ret;
 		}
 	}
@@ -52,6 +50,13 @@ namespace Neutrino {
 		return r->second;
 	}
 
+	void Corpus::Optimize() {
+		bloom.Reset();
+
+		for (auto &it : corpus) {
+		}
+	}
+
 	void Corpus::Stats() const {
 		int nw = 0;
 		int rnw = 0;
@@ -69,7 +74,8 @@ namespace Neutrino {
 			}
 		}
 
-		printf(
+		fprintf(
+			stderr,
 			"New: %d\n"
 			"Renew: %d\n"
 			"Executed: %d\n"
@@ -77,5 +83,7 @@ namespace Neutrino {
 			"Discarded: %d\n",
 			nw, rnw, executed, evaluated, discarded
 		);
+
+		fflush(stderr);
 	}
 };

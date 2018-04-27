@@ -57,6 +57,11 @@ namespace Neutrino {
 
 		return true;
 	}
+	
+	template<int SIZE>
+	void BloomFilter<SIZE>::Reset() {
+		bits.reset();
+	}
 };
 
 

@@ -16,6 +16,8 @@ namespace Neutrino {
 
 		void Add(const uint8_t *data, std::size_t len);
 		bool PossiblyContains(const uint8_t *data, std::size_t len) const;
+
+		void Reset();
 	};
 };
 
