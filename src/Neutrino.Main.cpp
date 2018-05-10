@@ -770,8 +770,8 @@ int main(int argc, const char *argv[]) {
 		startTime = std::chrono::system_clock::now();
 	}
 
-	//environment->InitExec((Neutrino::UINTPTR) loader->GetEntry());
-	environment->InitExec((Neutrino::UINTPTR) Empty);
+	environment->InitExec((Neutrino::UINTPTR) loader->GetEntry());
+	//environment->InitExec((Neutrino::UINTPTR) Empty);
 	while (running) {
 		ExecuteTests();
 		if (tracingBenchmark) {
