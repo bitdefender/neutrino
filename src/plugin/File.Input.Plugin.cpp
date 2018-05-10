@@ -37,7 +37,7 @@ public :
 		return cItr != std::experimental::filesystem::end(cItr);
 	}
 
-	bool GetNextTest(Neutrino::Test &out) {
+	bool GetNextTest(Neutrino::ExternalTest &out) {
 		if (cItr == std::experimental::filesystem::end(cItr)) {
 			return false;
 		}
@@ -50,10 +50,9 @@ public :
 				unsigned long long sz = std::experimental::filesystem::file_size(cItr->path());
 				std::ifstream tStream(cItr->path(), std::ios::binary);
 
-				out.size = (int)sz;
-				out.buffer = new unsigned char[out.size];
+				out.SetSize((unsigned int)sz);
 
-				tStream.read((char *)out.buffer, out.size);
+				tStream.read((char *)out.GetBuffer(), sz);
 				cItr++;
 
 				return true;
@@ -66,7 +65,7 @@ public :
 
 class FileInputPlugin : public Neutrino::InputPlugin {
 private :
-	static const Neutrino::TestState states[];
+	static const Neutrino::ExternalTestSource states[];
 
 	std::vector<DirectoryMonitor> dirs[2];
 	std::vector<DirectoryMonitor>::iterator cDirs[2];
@@ -75,7 +74,7 @@ private :
 	bool SetDirs(const nlohmann::json &cfg, const char *key, std::vector<DirectoryMonitor>& dirs);
 
 	bool HasNextTestDir(int idx);
-	bool GetNextTestDir(int idx, Neutrino::Test & out);
+	bool GetNextTestDir(int idx, Neutrino::ExternalTest &out);
 
 public :
 	FileInputPlugin();
@@ -86,10 +85,10 @@ public :
 	virtual bool IsPersistent() const;
 
 	virtual bool HasNextTest();
-	virtual bool GetNextTest(Neutrino::Test &out);
+	virtual bool GetNextTest(Neutrino::ExternalTest &out, Neutrino::ExternalTestSource &state);
 };
 
-const Neutrino::TestState FileInputPlugin::states[] = { Neutrino::TestState::NEW, Neutrino::TestState::EXCEPTED };
+const Neutrino::ExternalTestSource FileInputPlugin::states[] = { Neutrino::ExternalTestSource::NEW, Neutrino::ExternalTestSource::EXCEPTED };
 
 bool FileInputPlugin::SetDirs(const nlohmann::json &cfg, const char *key, std::vector<DirectoryMonitor> &dirs) {
 	if (cfg.find(key) == cfg.end()) {
@@ -145,7 +144,7 @@ bool FileInputPlugin::HasNextTest() {
 	return HasNextTestDir(0) || HasNextTestDir(1);
 }
 
-bool FileInputPlugin::GetNextTestDir(int idx, Neutrino::Test &out) {
+bool FileInputPlugin::GetNextTestDir(int idx, Neutrino::ExternalTest &out) {
 	if (cDirs[idx] == dirs[idx].end()) {
 		return false;
 	}
@@ -163,7 +162,7 @@ bool FileInputPlugin::GetNextTestDir(int idx, Neutrino::Test &out) {
 	return cDirs[idx]->GetNextTest(out);
 }
 
-bool FileInputPlugin::GetNextTest(Neutrino::Test &out) {
+bool FileInputPlugin::GetNextTest(Neutrino::ExternalTest &out, Neutrino::ExternalTestSource &state) {
 	bool ret = GetNextTestDir(cSel, out);
 
 	if (!ret) {
@@ -172,7 +171,7 @@ bool FileInputPlugin::GetNextTest(Neutrino::Test &out) {
 		ret = GetNextTestDir(cSel, out);
 	}
 
-	out.state = states[cSel];
+	state = states[cSel];
 
 	cSel ^= 1;
 	return ret;

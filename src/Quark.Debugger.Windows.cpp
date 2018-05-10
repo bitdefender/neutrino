@@ -40,7 +40,7 @@ namespace Quark {
 				}
 
 				case EXCEPTION_DEBUG_EVENT: {
-					Neutrino::Test crashTest;
+					Neutrino::TestData crashTest;
 					if (extractor.Perform(pi.hProcess, crashTest)) {
 						printf("Succesfully extracted test %s\n", crashTest.buffer);
 					}

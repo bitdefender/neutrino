@@ -18,10 +18,13 @@ namespace Neutrino {
 			int parent;
 			int rank;
 
+			bool found;
+
 			std::vector<int> next;
 		};
 
 		std::vector<Node> graph;
+		int coverage;
 
 		int GetSet(int a);
 		bool Union(int a, int b);
@@ -32,8 +35,9 @@ namespace Neutrino {
 		SimulationTraceEnvironment();
 
 		virtual void InitExec(UINTPTR entry);
-		virtual void Go(UINTPTR entry, unsigned int size, unsigned char *buffer);
+		virtual void Go(unsigned char *buffer, unsigned int size);
 		virtual AbstractResult *GetResult();
+		virtual int GetCoverage();
 	};
 };
 

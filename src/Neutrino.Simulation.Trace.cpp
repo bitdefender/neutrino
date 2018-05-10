@@ -42,6 +42,7 @@ namespace Neutrino {
 		for (int i = 0; i < nCount; ++i) {
 			graph[i].rank = 1;
 			graph[i].parent = i;
+			graph[i].found = false;
 			graph[i].addr = (i << 12) | (rand() & 0xFFF);
 		}
 
@@ -77,18 +78,24 @@ namespace Neutrino {
 	}
 
 	SimulationTraceEnvironment::SimulationTraceEnvironment() {
+		coverage = 0;
 		GenerateGraph();
 	}
 
 	void SimulationTraceEnvironment::InitExec(UINTPTR entry) {
 	}
 
-	void SimulationTraceEnvironment::Go(UINTPTR entry, unsigned int size, unsigned char *buffer) {
+	void SimulationTraceEnvironment::Go(unsigned char *buffer, unsigned int size) {
 		int t = 0;
 
 		out.traceIndex = 0;
 
 		do {
+			if (false == graph[t].found) {
+				coverage++;
+				graph[t].found = true;
+			}
+
 			out.trace[out.traceIndex] = graph[t].addr;
 			out.traceIndex++;
 
@@ -103,6 +110,10 @@ namespace Neutrino {
 
 	AbstractResult *SimulationTraceEnvironment::GetResult() {
 		return &out;
+	}
+
+	int SimulationTraceEnvironment::GetCoverage() {
+		return coverage;
 	}
 
 };

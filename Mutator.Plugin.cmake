@@ -1,5 +1,6 @@
 set(mutator_plugin_sources
     src/plugin/Mutator.Plugin.cpp
+    src/Neutrino.External.Test.cpp
 )
 
 add_library(mutator.plugin SHARED

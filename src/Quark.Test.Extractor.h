@@ -27,7 +27,7 @@ namespace Quark {
 
 	public :
 		TestExtractor();
-		bool Perform(process_t process, Neutrino::Test &test);
+		bool Perform(process_t process, Neutrino::TestData &test);
 	};
 
 }; // namespace Quark

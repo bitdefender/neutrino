@@ -5,6 +5,7 @@
 
 namespace Neutrino {
     DWORD PopCount(DWORD x);
+	DWORD NextPow2(DWORD x);
     DWORD BinLog2(DWORD x);
 };
 

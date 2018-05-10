@@ -8,11 +8,15 @@ namespace Neutrino {
 	}
 
 	std::shared_ptr<Test> Corpus::AddTest(const unsigned char *input, int size, TestState state) {
-		Test tLookup(size, input);
+		sha1::SHA1 hash;
+		sha1::Digest digest;
+		
+		hash.ProcessBytes(input, size);
+		hash.GetDigest(digest);
 		
 		CorpusType::iterator r;
 
-		if (bloom.PossiblyContains(tLookup.name.digest8, sizeof(tLookup.name.digest8)) && (corpus.end() != (r = corpus.find(tLookup.name)))) {
+		if (bloom.PossiblyContains(digest.digest8, sizeof(digest.digest8)) && (corpus.end() != (r = corpus.find(digest)))) {
 			if (r->second->state == TestState::NEW) {
 				r->second->state = TestState::RENEW;
 
@@ -22,9 +26,9 @@ namespace Neutrino {
 			}
 			return r->second;
 		} else {
-			bloom.Add(tLookup.name.digest8, sizeof(tLookup.name.digest8));
+			bloom.Add(digest.digest8, sizeof(digest.digest8));
 			
-			auto ret = std::shared_ptr<Test>(new Test(std::move(tLookup)));
+			auto ret = std::shared_ptr<Test>(new Test(size, input, digest));
 			
 			ret->state = state;
 			corpus[ret->name] = ret;

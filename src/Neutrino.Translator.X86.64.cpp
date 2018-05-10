@@ -322,6 +322,18 @@ namespace Neutrino {
 		return usedRegs[tbl][state.opCode];
 	}
 
+	DWORD NextPow2(DWORD x) {
+		x = x - 1;
+
+		x |= x >> 16;
+		x |= x >> 8;
+		x |= x >> 4;
+		x |= x >> 2;
+		x |= x >> 1;
+
+		return x + 1;
+	}
+
 	DWORD BinLog2(DWORD x) {
 		DWORD ret = 0;
 

@@ -78,7 +78,7 @@ namespace Neutrino {
 	class AbstractEnvironment {
 	public :
 		virtual void InitExec(UINTPTR entry) = 0;
-		virtual void Go(unsigned char *buffer,unsigned int size) = 0;
+		virtual void Go(unsigned char *buffer, unsigned int size) = 0;
 		virtual AbstractResult *GetResult() = 0;
 		virtual int GetCoverage() = 0;
 	};

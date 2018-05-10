@@ -12,7 +12,7 @@ namespace Quark {
 		FreeLibrary(hMod);
 	}
 
-	bool TestExtractor::Perform(process_t process, Neutrino::Test & test) {
+	bool TestExtractor::Perform(process_t process, Neutrino::TestData & test) {
 		HMODULE hMod;
 		DWORD cbNeeded;
 

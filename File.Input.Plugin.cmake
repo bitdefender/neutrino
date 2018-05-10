@@ -1,5 +1,6 @@
 set(file_input_plugin_sources
     src/plugin/File.Input.Plugin.cpp
+    src/Neutrino.External.Test.cpp
 )
 
 add_library(file.input.plugin SHARED

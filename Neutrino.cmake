@@ -36,6 +36,9 @@ set(neutrino_headers
 	src/Neutrino.Strategy.Tuple.h
 	src/Neutrino.Simulation.Trace.h
 
+	src/Neutrino.External.Test.h
+	src/Neutrino.Buffer.Manager.h
+	src/Neutrino.Buffer.Manager.hpp
 	src/Neutrino.Test.h
 
 	src/Neutrino.Queue.h
@@ -81,6 +84,10 @@ set(neutrino_sources
 	src/Neutrino.Strategy.Tuple.cpp
 
 	src/Neutrino.Simulation.Trace.cpp
+
+	src/Neutrino.External.Test.cpp
+	src/Neutrino.Buffer.Manager.cpp
+	src/Neutrino.Test.cpp
 
 	src/Neutrino.Heap.cpp
 

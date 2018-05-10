@@ -37,10 +37,10 @@ namespace Neutrino {
 	class TestDestination {
 	public :
 		/* Call this function to add new tests to the evaluation queue */
-		virtual bool EnqueueTest(Test &test) = 0;
+		virtual bool EnqueueTest(ExternalTest &test) = 0;
 
 		/* Call this function to add old tests to the mutation queue */
-		virtual bool RequeueTest(double priority, Test &test) = 0;
+		//virtual bool RequeueTest(double priority, Test &test) = 0;
 	};
 
 	class MutatorPlugin : public Plugin {

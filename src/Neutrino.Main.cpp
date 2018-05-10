@@ -189,9 +189,8 @@ typedef Neutrino::FairQueue<std::shared_ptr<Neutrino::Test>, 1 << 15> InputQueue
 InputQueue *testInputQueue;
 int getTestBucket = 0;
 
-extern "C" PLUGIN_EXTERN Neutrino::Test *currentTest;
-
-Neutrino::Test *currentTest = nullptr;
+extern "C" PLUGIN_EXTERN Neutrino::TestData *currentTest;
+Neutrino::TestData *currentTest = nullptr;
 
 class MutatorDestinationAdapter : public Neutrino::TestDestination {
 private :
@@ -199,20 +198,23 @@ private :
 public :
 	MutatorDestinationAdapter(InputQueue &q) : queue(q) { }
 
-	virtual bool EnqueueTest(Neutrino::Test &test) {
-		auto itm = corpus.AddTest(test);
+	virtual bool EnqueueTest(Neutrino::ExternalTest &test) {
+		//auto itm = corpus.AddTest(test);
+		auto itm = corpus.AddTest(test.GetBuffer(), test.GetSize(), Neutrino::TestState::NEW);
 
 		if (itm->state == Neutrino::TestState::NEW) {
 			processStatus.tests.queued++;
 			return queue.Enqueue(getTestBucket, itm);
+		} else if (itm->state == Neutrino::TestState::EVALUATED) {
+			//__asm int 3;
 		}
 
 		return true;
 	}
 
-	virtual bool RequeueTest(double priority, Neutrino::Test &test) {
+	/*virtual bool RequeueTest(double priority, Neutrino::Test &test) {
 		return false;
-	}
+	}*/
 } *dstAdapter;
 
 typedef Neutrino::PriorityQueue<std::shared_ptr<Neutrino::Test>, 1 << 16> MutationQueue;
@@ -249,7 +251,9 @@ Neutrino::AbstractEnvironment *environment;
 
 #ifdef NEUTRINO_SIMULATION
 Neutrino::SimulationTraceEnvironment traceEnvironment;
-Neutrino::SimulationTupleEnvironment tupleEnvironment;
+//Neutrino::SimulationTupleEnvironment tupleEnvironment;
+
+extern Neutrino::Environment<Neutrino::Translator<Neutrino::TranslationTableX8632<Neutrino::TupleStrategy> >, Neutrino::TrampolineX8632, Neutrino::System > tupleEnvironment;
 #else
 
 #ifdef _M_X64 
@@ -302,9 +306,11 @@ bool RunInputs(bool onlyPersistent) {
 	for (unsigned int i = 0; i < inputPlugins.size(); ++i) {
 		if (!onlyPersistent || inputPlugins[i]->IsPersistent()) {
 			if (inputPlugins[i]->HasNextTest()) {
-				Neutrino::Test tst;
-				while (inputPlugins[i]->GetNextTest(tst)) {
-					auto itm = corpus.AddTest(tst);
+				static Neutrino::ExternalTest buffer;
+				Neutrino::ExternalTestSource state;
+
+				while (inputPlugins[i]->GetNextTest(buffer, state)) {
+					auto itm = corpus.AddTest(buffer.GetBuffer(), buffer.GetSize(), (Neutrino::TestState)state);
 
 					if (itm->state == Neutrino::TestState::NEW) {
 						testInputQueue->Enqueue(i, itm);
@@ -398,9 +404,7 @@ bool ExecuteTests() {
 		processStatus.tests.queued--;
 
 		currentTest = test.get();
-		for (int i = 0; i < 1000; ++i) {
-			environment->Go(test->buffer, test->size);
-		}
+		environment->Go(test->buffer, test->size);
 		currentTest = nullptr;
 
 		test->state = Neutrino::TestState::EXECUTED;

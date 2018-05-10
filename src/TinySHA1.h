@@ -144,6 +144,27 @@ namespace sha1 {
 			}
 			return *this;
 		}
+
+		SHA1& ProcessBytesFast(const uint8_t *&start, size_t &len) {
+			size_t copy = 64 - this->m_blockByteIndex;
+			if (copy > len) {
+				copy = len;
+			}
+
+			memcpy(&m_block[m_blockByteIndex], start, copy);
+			this->m_blockByteIndex += copy;
+			this->m_byteCount += copy;
+
+			if (m_blockByteIndex == 64) {
+				this->m_blockByteIndex = 0;
+				ProcessBlock();
+			}
+
+			start += copy;
+			len -= copy;
+
+			return *this;
+		}
 		
 		SHA1& ProcessBlock(const void* const start, const void* const end) {
 			const uint8_t* begin = static_cast<const uint8_t*>(start);
@@ -157,14 +178,41 @@ namespace sha1 {
 		
 		SHA1& ProcessBytes(const void* const data, size_t len) {
 			const uint8_t* block = static_cast<const uint8_t*>(data);
-			ProcessBlock(block, block + len);
+			//ProcessBlock(block, block + len);
+
+			while (len) {
+				ProcessBytesFast(block, len);
+			}
+
 			return *this;
 		}
 		
 		void GetDigest(Digest &digest) {
+			static uint8_t suffix[] = {
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+			};
+
 			size_t bitCount = this->m_byteCount * 8;
 			ProcessByte(0x80);
-			if (this->m_blockByteIndex > 56) {
+
+			suffix[71] = (bitCount) & 0xFF;
+			suffix[70] = (bitCount >> 8) & 0xFF;
+			suffix[69] = (bitCount >> 16) & 0xFF;
+			suffix[68] = (bitCount >> 24) & 0xFF;
+
+			const uint8_t *sfx = &suffix[m_blockByteIndex > 56 ? m_blockByteIndex - 56 : 8 + m_blockByteIndex];
+			size_t len = m_blockByteIndex > 56 ? 64 + (m_blockByteIndex - 56) : 64 - m_blockByteIndex;
+			ProcessBytesFast(sfx, len);
+
+			/*if (this->m_blockByteIndex > 56) {
 				while (m_blockByteIndex != 0) {
 					ProcessByte(0);
 				}
@@ -183,7 +231,7 @@ namespace sha1 {
 			ProcessByte( static_cast<unsigned char>((bitCount>>24) & 0xFF));
 			ProcessByte( static_cast<unsigned char>((bitCount>>16) & 0xFF));
 			ProcessByte( static_cast<unsigned char>((bitCount>>8 ) & 0xFF));
-			ProcessByte( static_cast<unsigned char>((bitCount)     & 0xFF));
+			ProcessByte( static_cast<unsigned char>((bitCount)     & 0xFF));*/
 	
 			memcpy(digest.digest32, m_digest, 5 * sizeof(uint32_t));
 		}
