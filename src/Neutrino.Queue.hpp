@@ -10,6 +10,11 @@ namespace Neutrino {
 	}
 
 	template<typename T, int SZ>
+	Queue<T, SZ>::~Queue() {
+		Clear();
+	}
+
+	template<typename T, int SZ>
 	inline bool Queue<T, SZ>::IsEmpty() const {
 		return head == tail;
 	}
@@ -41,6 +46,15 @@ namespace Neutrino {
 		output = std::move(data[tail]);
 		tail = (tail + 1) % SZ;
 		return true;
+	}
+
+	template<typename T, int SZ>
+	void Queue<T, SZ>::Clear() {
+		while (head < tail) {
+			data[head].reset();
+			++head;
+		}
+		head = tail = 0;
 	}
 };
 

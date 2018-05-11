@@ -9,12 +9,15 @@ namespace Neutrino {
 		int head, tail;
 	public:
 		Queue();
+		~Queue();
 
 		bool IsEmpty() const;
 		bool IsFull() const;
 
 		bool Enqueue(T &input);
 		bool Dequeue(T &output);
+
+		void Clear();
 	};
 };
 

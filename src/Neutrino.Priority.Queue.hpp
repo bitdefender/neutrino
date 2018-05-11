@@ -46,6 +46,11 @@ namespace Neutrino {
 	}
 
 	template<typename T, int SZ>
+	PriorityQueue<T, SZ>::~PriorityQueue() {
+		Clear();
+	}
+
+	template<typename T, int SZ>
 	inline bool PriorityQueue<T, SZ>::IsEmpty() const {
 		return 0 == size;
 	}
@@ -124,6 +129,14 @@ namespace Neutrino {
 		data[dest] = std::move(tmp);
 
 		return true;
+	}
+
+	template<typename T, int SZ>
+	void PriorityQueue<T, SZ>::Clear() {
+		for(int i = 0; i < size; ++i) {
+			data[i].second.reset();
+		}
+		size = 0;
 	}
 };
 

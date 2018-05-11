@@ -10,6 +10,11 @@ namespace Neutrino {
 	}
 
 	template<typename T, int SZ>
+	FairQueue<T, SZ>::~FairQueue() {
+		Clear();
+	}
+
+	template<typename T, int SZ>
 	inline bool FairQueue<T, SZ>::IsEmpty() const {
 		for (auto &it : queues) {
 			if (!it.IsEmpty()) {
@@ -55,6 +60,13 @@ namespace Neutrino {
 		cQueue++;
 		cQueue %= qCount;
 		return true;
+	}
+
+	template<typename T, int SZ>
+	void FairQueue<T, SZ>::Clear() {
+		for (auto it = queues.begin(); it != queues.end(); ++it) {
+			it->Clear();
+		}
 	}
 };
 

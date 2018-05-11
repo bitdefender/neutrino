@@ -796,6 +796,8 @@ int main(int argc, const char *argv[]) {
 
 	corpus.Stats();
 	corpus.Clear();
+	testInputQueue->Clear();
+	testMutationQueue.Clear();
 
 	delete loader;
 	return 0;

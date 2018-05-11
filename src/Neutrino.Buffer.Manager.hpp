@@ -1,11 +1,12 @@
 #include "Neutrino.Buffer.Manager.h"
 #include "Neutrino.Memory.h"
+#include "Neutrino.Util.h"
 
 namespace Neutrino {
 
 	template<int LOG_SIZE>
 	MemoryPool<LOG_SIZE>::MemoryPool() {
-		data = (unsigned char *)::Neutrino::Alloc(nullptr, 1 << LOG_POOL_SIZE, PAGE_PROTECTION_WRITE | PAGE_PROTECTION_READ, 0, -1);
+		data = (unsigned char *)::Neutrino::Alloc(nullptr, 1 << LOG_POOL_SIZE, PAGE_PROTECTION_WRITE | PAGE_PROTECTION_READ, -1, 0);
 
 		freeCount = 0;
 
@@ -27,7 +28,7 @@ namespace Neutrino {
 	template<int LOG_SIZE>
 	unsigned char * MemoryPool<LOG_SIZE>::Alloc() {
 		if (0 == freeCount) {
-			return false;
+			return nullptr;
 		}
 
 		freeCount -= 1;
@@ -44,5 +45,5 @@ namespace Neutrino {
 	bool MemoryPool<LOG_SIZE>::Owns(unsigned char *ptr) const {
 		return (data <= ptr) && (ptr < data + (1 << LOG_POOL_SIZE));
 	}
-		
+
 };

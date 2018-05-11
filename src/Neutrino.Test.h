@@ -4,6 +4,7 @@
 #include "TinySHA1.h"
 #include "Neutrino.Buffer.Manager.h"
 #include "Neutrino.External.Test.h"
+#include "Neutrino.Util.h"
 
 #include <utility>
 
@@ -76,7 +77,7 @@ namespace Neutrino {
 
 		~Test() {
 			if (nullptr != buffer) {
-				mgr.Free(buffer, size - 1);
+				mgr.Free(buffer, size + 1);
 				//delete buffer;
 				//mgr.Free(buffer);
 			}
@@ -90,7 +91,7 @@ namespace Neutrino {
 			rhs.size = 0;
 
 			if (nullptr != buffer) {
-				mgr.Free(buffer, size - 1);
+				mgr.Free(buffer, size + 1);
 				//delete buffer;
 				//mgr.Free(buffer);
 			}

@@ -48,7 +48,9 @@ namespace Neutrino {
         }
 
         ~LoaderImpl() {
-            _uninit();
+			if (_uninit) {
+				_uninit();
+			}
 		    dlclose(hMod);
         }
 

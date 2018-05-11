@@ -15,6 +15,7 @@ namespace Neutrino {
 		int Sift(const double priority, int index = 0);
 	public:
 		PriorityQueue();
+		~PriorityQueue();
 
 		bool IsEmpty() const;
 		bool IsFull() const;
@@ -25,6 +26,8 @@ namespace Neutrino {
 
 		bool Top(T &output) const;
 		bool ChangeTopPriority(const double newPriority);
+
+		void Clear();
 	};
 
 };

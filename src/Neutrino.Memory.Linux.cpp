@@ -16,7 +16,12 @@ namespace Neutrino {
 
 	void *Alloc(void *addr, size_t size, DWORD prot, int fd, off_t offset) {
         int flags = ((fd) < 0) ? MAP_SHARED | MAP_ANONYMOUS : MAP_SHARED;
-		return mmap(addr, size, PageProtections[prot], flags, fd, offset);
+		void *ret = mmap(addr, size, PageProtections[prot], flags, fd, offset);
+
+		if (ret == ((void *)-1))
+			return nullptr;
+
+		return ret;
 	}
 
 	void Protect(void *addr, size_t size, DWORD newProt, DWORD &oldProt) {

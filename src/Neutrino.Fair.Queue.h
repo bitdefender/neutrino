@@ -14,6 +14,7 @@ namespace Neutrino {
 		int cQueue, qCount;
 	public:
 		FairQueue(int buckets);
+		~FairQueue();
 
 		bool IsEmpty() const;
 		bool IsFull() const;
@@ -21,6 +22,8 @@ namespace Neutrino {
 
 		bool Enqueue(int bucket, T &input);
 		bool Dequeue(T &output);
+
+		void Clear();
 	};
 
 };

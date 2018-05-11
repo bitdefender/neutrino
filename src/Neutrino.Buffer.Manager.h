@@ -14,7 +14,7 @@ namespace Neutrino {
 
 	typedef AbstractMemoryPool *(*PoolAllocatorFunc)();
 
-#define LOG_POOL_SIZE 24 // 16MB pools
+#define LOG_POOL_SIZE 20 // 16MB pools
 
 	template <int LOG_SIZE>
 	class MemoryPool : public AbstractMemoryPool{

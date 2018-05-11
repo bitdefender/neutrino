@@ -1,6 +1,7 @@
 #include "Neutrino.Buffer.Manager.h"
 
 #include "Neutrino.Bit.Hacks.h"
+#include "Neutrino.Util.h"
 
 namespace Neutrino {
 
