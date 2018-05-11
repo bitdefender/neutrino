@@ -7,6 +7,10 @@ namespace Neutrino {
 		corpus.rehash(1 << 16);
 	}
 
+	Corpus::~Corpus() {
+		Clear();
+	}
+
 	std::shared_ptr<Test> Corpus::AddTest(const unsigned char *input, int size, TestState state) {
 		sha1::SHA1 hash;
 		sha1::Digest digest;
@@ -37,9 +41,9 @@ namespace Neutrino {
 		}
 	}
 
-	std::shared_ptr<Test> Corpus::AddTest(const Test &test) {
+	/*std::shared_ptr<Test> Corpus::AddTest(const Test &test) {
 		return AddTest(test.buffer, test.size, test.state);
-	}
+	}*/
 
 	std::shared_ptr<Test> Corpus::FindTest(const sha1::Digest &name) const {
 		if (!bloom.PossiblyContains(name.digest8, sizeof(name))) {
@@ -89,5 +93,9 @@ namespace Neutrino {
 		);
 
 		fflush(stderr);
+	}
+
+	void Corpus::Clear() {
+		corpus.clear();
 	}
 };

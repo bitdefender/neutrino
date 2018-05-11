@@ -786,11 +786,16 @@ int main(int argc, const char *argv[]) {
 		if (!ExecuteMutation()) {
 			break;
 		}
+
+		if (processStatus.tests.traced > 100) {
+			running = false;
+		}
 	}
 
 	Finish();
 
 	corpus.Stats();
+	corpus.Clear();
 
 	delete loader;
 	return 0;

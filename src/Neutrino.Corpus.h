@@ -32,15 +32,17 @@ namespace Neutrino {
 	public :
 
 		Corpus();
+		~Corpus();
 
 		std::shared_ptr<Test> AddTest(const unsigned char *input, int size, TestState state);
-		std::shared_ptr<Test> AddTest(const Test &test);
+		//std::shared_ptr<Test> AddTest(const Test &test);
 
 		std::shared_ptr<Test> FindTest(const sha1::Digest &name) const;
 
 		void Optimize();
 
 		void Stats() const;
+		void Clear();
 	};
 
 };
