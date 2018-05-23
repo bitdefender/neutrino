@@ -21,7 +21,7 @@ QEMU_OPTS=-kernel $(ZIMAGE) \
 	-cpu arm1176 \
 	-m 256 \
 	-M versatilepb \
-	-net nic,model=virtio,vlan=0 -net tap,ifname=tap0,vlan=0,script=no,downscript=no \
+	-net nic -net tap,ifname=tap0,script=no,downscript=no \
 	-hda $(RIMAGE) \
 	--append "root=/dev/sda2 rootfstype=ext4 rw" \
 	--display $(QEMU_DISPLAY) -s

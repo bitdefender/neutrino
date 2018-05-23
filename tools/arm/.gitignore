@@ -1,2 +1,3 @@
 qemu-rpi-kernel/
 tmp/
+*.img
